@@ -21,9 +21,14 @@ function renderProfile(user) {
   const init = document.getElementById('avatarInitial');
 
   if (user.avatar_url) {
-    img.src = user.avatar_url;
+    img.src = `${user.avatar_url}?t=${Date.now()}`;
     img.style.display = 'block';
     init.style.display = 'none';
+    img.onerror = () => {
+      img.style.display = 'none';
+      init.style.display = 'grid';
+      init.textContent = (user.name || user.email || 'A')[0].toUpperCase();
+    };
   } else {
     img.style.display = 'none';
     init.style.display = 'grid';
@@ -133,7 +138,17 @@ document.getElementById('formAvatar')?.addEventListener('submit', async e => {
       credentials: 'same-origin',
       body: formData
     });
-    const data = await res.json();
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      if (!res.ok) {
+        if (res.status === 413) throw new Error('Selected image file is too large (maximum allowed is 20MB).');
+        throw new Error(`Upload failed (Server HTTP ${res.status}).`);
+      }
+      throw new Error('Server returned invalid response.');
+    }
     if (!res.ok) throw new Error(data.message || 'Failed to upload avatar.');
 
     showAlert('avatarAlert', 'Avatar uploaded and applied successfully!', true);

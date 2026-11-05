@@ -33,9 +33,10 @@ function renderSidebarProfile(user) {
   if (existing) existing.remove();
 
   const isSettingsPage = window.location.pathname.endsWith('settings.html');
+  const initial = API.escape((user.name || user.email || 'A')[0].toUpperCase());
   const avatarContent = user.avatar_url
-    ? `<img src="${API.escape(user.avatar_url)}" alt="Avatar" class="admin-avatar">`
-    : `<div class="admin-avatar">${API.escape((user.name || user.email || 'A')[0].toUpperCase())}</div>`;
+    ? `<img src="${API.escape(user.avatar_url)}" alt="Avatar" class="admin-avatar" onerror="this.onerror=null;this.style.display='none';this.nextElementSibling.style.display='grid';"><div class="admin-avatar" style="display:none;">${initial}</div>`
+    : `<div class="admin-avatar">${initial}</div>`;
 
   const profileCard = document.createElement('div');
   profileCard.id = 'adminSideProfile';
@@ -58,6 +59,7 @@ function renderSidebarProfile(user) {
   // Always append at the bottom of the sidebar
   sidebar.appendChild(profileCard);
 }
+window.renderSidebarProfile = renderSidebarProfile;
 
 // Background ping to keep database connection warm and verify connectivity
 let isPinging = false;

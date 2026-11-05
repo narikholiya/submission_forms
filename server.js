@@ -187,9 +187,9 @@ const avatarStorage = multer.diskStorage({
 
 const avatarUpload = multer({
   storage: avatarStorage,
-  limits: { fileSize: 3 * 1024 * 1024 },
+  limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowed = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"];
+    const allowed = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".jfif", ".avif"];
     const ext = path.extname(file.originalname).toLowerCase();
     if (!allowed.includes(ext)) {
       return cb(new Error("Only PNG, JPG, JPEG, WEBP, and GIF images are allowed."));

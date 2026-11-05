@@ -137,19 +137,64 @@ async function loadOverview() {
     renderHealthDonut(d);
 
     const rows = d.tables || [];
-    document.getElementById('tablesBody').innerHTML = rows.map(t => `
-      <tr>
-        <td><b>${API.escape(t.name)}</b></td>
-        <td>${API.escape(t.engine || '—')}</td>
-        <td><span class="pill" style="font-weight:bold;">${API.number(t.rows)}</span></td>
-        <td>${API.bytes(t.dataBytes)}</td>
-        <td>${API.bytes(t.indexBytes)}</td>
-        <td>
-          <a class="btn" style="padding:4px 8px; font-size:12px; margin-right:4px;" href="/tables-records.html?table=${encodeURIComponent(t.name)}">View Records</a>
-          <a class="btn" style="padding:4px 8px; font-size:12px;" href="/table-details.html?table=${encodeURIComponent(t.name)}">Schema →</a>
-        </td>
-      </tr>
-    `).join('') || '<tr><td colspan="6">No tables found.</td></tr>';
+    const maxRows = Math.max(1, ...rows.map(t => Number(t.rows || 0)));
+    const totalRowsSum = rows.reduce((acc, cur) => acc + Number(cur.rows || 0), 0) || 1;
+
+    const tableColorPalettes = [
+      { gradient: 'linear-gradient(90deg, #2563eb, #38bdf8)', text: '#1d4ed8' }, // Blue
+      { gradient: 'linear-gradient(90deg, #7c3aed, #c084fc)', text: '#6d28d9' }, // Purple
+      { gradient: 'linear-gradient(90deg, #059669, #34d399)', text: '#047857' }, // Emerald
+      { gradient: 'linear-gradient(90deg, #ea580c, #fb923c)', text: '#c2410c' }, // Orange
+      { gradient: 'linear-gradient(90deg, #db2777, #f472b6)', text: '#be185d' }, // Pink
+      { gradient: 'linear-gradient(90deg, #0284c7, #38bdf8)', text: '#0369a1' }, // Sky
+      { gradient: 'linear-gradient(90deg, #4f46e5, #818cf8)', text: '#4338ca' }, // Indigo
+      { gradient: 'linear-gradient(90deg, #d97706, #fbbf24)', text: '#b45309' }, // Amber
+    ];
+
+    document.getElementById('tablesBody').innerHTML = rows.map((t, idx) => {
+      const r = Number(t.rows || 0);
+      const palette = tableColorPalettes[idx % tableColorPalettes.length];
+      const barWidth = Math.max(r > 0 ? 6 : 0, Math.round((r / maxRows) * 100));
+      const pctOfTotal = totalRowsSum > 0 ? Math.round((r / totalRowsSum) * 100) : 0;
+
+      let graphHtml = '';
+      if (r === 0) {
+        graphHtml = `
+          <div style="display:flex; align-items:center; gap:10px; width:100%; max-width:280px;" title="Table is empty (0 records)">
+            <div style="flex:1; height:8px; background:#f1f5f9; border-radius:99px; overflow:hidden;">
+              <div style="width:0%; height:100%;"></div>
+            </div>
+            <span class="muted" style="font-size:11px; font-weight:600; min-width:64px; text-align:right;">0 rows (0%)</span>
+          </div>
+        `;
+      } else {
+        graphHtml = `
+          <div style="display:flex; align-items:center; gap:10px; width:100%; max-width:280px;" title="${API.number(r)} rows (${pctOfTotal}% of total database records)">
+            <div style="flex:1; height:8px; background:#f1f5f9; border-radius:99px; overflow:hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.04);">
+              <div style="width:${barWidth}%; height:100%; background:${palette.gradient}; border-radius:99px; transition: width 0.7s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 1px 2px rgba(0,0,0,0.1);"></div>
+            </div>
+            <span style="font-size:11px; font-weight:700; color:${palette.text}; min-width:68px; text-align:right;">
+              ${API.number(r)} <small style="font-size:10px; font-weight:600; opacity:0.8;">(${pctOfTotal}%)</small>
+            </span>
+          </div>
+        `;
+      }
+
+      return `
+        <tr>
+          <td><b>${API.escape(t.name)}</b></td>
+          <td>${API.escape(t.engine || '—')}</td>
+          <td><span class="pill" style="font-weight:bold;">${API.number(t.rows)}</span></td>
+          <td>${API.bytes(t.dataBytes)}</td>
+          <td>${API.bytes(t.indexBytes)}</td>
+          <td>${graphHtml}</td>
+          <td style="text-align: right; white-space: nowrap;">
+            <a class="btn" style="padding:5px 10px; font-size:12px; margin-right:4px;" href="/tables-records.html?table=${encodeURIComponent(t.name)}">View Records</a>
+            <a class="btn" style="padding:5px 10px; font-size:12px;" href="/table-details.html?table=${encodeURIComponent(t.name)}">Schema →</a>
+          </td>
+        </tr>
+      `;
+    }).join('') || '<tr><td colspan="7">No tables found.</td></tr>';
 
     renderTableDistribution(rows);
 
