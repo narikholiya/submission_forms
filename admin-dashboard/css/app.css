@@ -1212,10 +1212,26 @@ td a {
   color: #94a3b8 !important;
 }
 
+[data-theme="dark"] .sidebar nav a .nav-icon {
+  filter: brightness(0) invert(0.85);
+  opacity: 0.85;
+  transition: filter 0.2s ease, opacity 0.2s ease;
+}
+
 [data-theme="dark"] .sidebar nav a:hover,
 [data-theme="dark"] .sidebar nav a.active {
   background: #1f2937 !important;
   color: #60a5fa !important;
+}
+
+[data-theme="dark"] .sidebar nav a:hover .nav-icon {
+  filter: brightness(0) invert(1);
+  opacity: 1;
+}
+
+[data-theme="dark"] .sidebar nav a.active .nav-icon {
+  filter: brightness(0) saturate(100%) invert(64%) sepia(59%) saturate(4156%) hue-rotate(194deg) brightness(101%) contrast(99%);
+  opacity: 1;
 }
 
 [data-theme="dark"] .admin-profile-card {
@@ -1429,13 +1445,14 @@ td a {
 }
 
 [data-theme="dark"] #donutBgTrack {
-  stroke: #1f2937 !important;
+  stroke: #334155 !important;
 }
 
 [data-theme="dark"] #donutCenterInfo {
-  background: #111827 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
   color: #f8fafc !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
 }
 
 [data-theme="dark"] .dist-row .bar {
@@ -1449,4 +1466,189 @@ td a {
 [data-theme="dark"] .legend-box {
   background: #1f2937 !important;
   border-color: #374151 !important;
+}
+
+/* Login Page Theme Toggle Button & Dark Theme */
+.login-theme-btn {
+  position: fixed;
+  top: 20px;
+  right: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 99px;
+  font-size: 13px;
+  font-weight: 650;
+  color: #475569;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1000;
+}
+.login-theme-btn:hover {
+  background: #f8fafc;
+  color: #0f172a;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.12);
+}
+
+[data-theme="dark"] .login-theme-btn {
+  background: #111827 !important;
+  border-color: #374151 !important;
+  color: #f1f5f9 !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4) !important;
+}
+[data-theme="dark"] .login-theme-btn:hover {
+  background: #1f2937 !important;
+  color: #60a5fa !important;
+}
+
+[data-theme="dark"] .login-page {
+  background: radial-gradient(circle at top right, #1e293b, #0b1120) !important;
+}
+[data-theme="dark"] .login-card {
+  background: #111827 !important;
+  border-color: #1f2937 !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6) !important;
+}
+[data-theme="dark"] .login-card h1 {
+  color: #f8fafc !important;
+}
+[data-theme="dark"] .login-card label {
+  color: #cbd5e1 !important;
+}
+[data-theme="dark"] .auth-tabs {
+  background: #0b1120 !important;
+  border: 1px solid #1f2937 !important;
+}
+[data-theme="dark"] .auth-tab {
+  color: #94a3b8 !important;
+}
+[data-theme="dark"] .auth-tab.active {
+  background: #1f2937 !important;
+  color: #60a5fa !important;
+}
+[data-theme="dark"] .secret-badge {
+  background: #1e3a8a33 !important;
+  border-color: #1e40af !important;
+  color: #93c5fd !important;
+}
+
+/* Dashboard Text Visibility in Dark Mode */
+[data-theme="dark"] h1,
+[data-theme="dark"] h2,
+[data-theme="dark"] h3,
+[data-theme="dark"] b,
+[data-theme="dark"] strong,
+[data-theme="dark"] #healthText {
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .dist-name,
+[data-theme="dark"] .dist-name b {
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .dist-row:hover {
+  background: #1f2937 !important;
+}
+
+[data-theme="dark"] .dist-count {
+  color: #60a5fa !important;
+}
+
+[data-theme="dark"] #btnToggleDist {
+  background: #1f2937 !important;
+  border-color: #374151 !important;
+  color: #93c5fd !important;
+}
+
+/* Donut Health Chart in Dark Mode */
+[data-theme="dark"] .donut-bg {
+  stroke: #334155 !important;
+}
+
+[data-theme="dark"] .donut-center-info {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] .donut-center-val {
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .donut-center-label {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .donut-tooltip {
+  background: #111827 !important;
+  border-color: #374151 !important;
+  color: #f8fafc !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6) !important;
+}
+[data-theme="dark"] .tooltip-title {
+  color: #94a3b8 !important;
+}
+[data-theme="dark"] .tooltip-val {
+  color: #f8fafc !important;
+}
+[data-theme="dark"] .tooltip-desc {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .legend-chip {
+  background: #1f2937 !important;
+  border-color: #374151 !important;
+  color: #e2e8f0 !important;
+}
+[data-theme="dark"] .legend-chip:hover,
+[data-theme="dark"] .legend-chip.active-chip {
+  background: #253349 !important;
+  border-color: #4b5563 !important;
+}
+[data-theme="dark"] .legend-name {
+  color: #cbd5e1 !important;
+}
+[data-theme="dark"] .legend-chip strong {
+  color: #f8fafc !important;
+}
+
+/* Row Volume Graph in Tables & Storage */
+.row-vol-track {
+  background: #f1f5f9;
+}
+[data-theme="dark"] .row-vol-track {
+  background: #1f2937 !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4) !important;
+}
+[data-theme="dark"] .row-vol-text {
+  color: #93c5fd !important;
+}
+[data-theme="dark"] .row-vol-text small {
+  color: #94a3b8 !important;
+}
+[data-theme="dark"] .row-vol-empty {
+  color: #64748b !important;
+}
+
+/* Table badges and links in dark mode */
+[data-theme="dark"] .pill {
+  background: #1f2937 !important;
+  color: #93c5fd !important;
+}
+[data-theme="dark"] .new-badge {
+  background: #064e3b !important;
+  color: #34d399 !important;
+  border-color: #059669 !important;
+}
+[data-theme="dark"] td a {
+  color: #60a5fa !important;
+}
+[data-theme="dark"] td a:hover {
+  color: #93c5fd !important;
 }

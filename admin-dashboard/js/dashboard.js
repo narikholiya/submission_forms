@@ -160,21 +160,21 @@ async function loadOverview() {
       let graphHtml = '';
       if (r === 0) {
         graphHtml = `
-          <div style="display:flex; align-items:center; gap:10px; width:100%; max-width:280px;" title="Table is empty (0 records)">
-            <div style="flex:1; height:8px; background:#f1f5f9; border-radius:99px; overflow:hidden;">
+          <div class="row-vol-wrap" style="display:flex; align-items:center; gap:10px; width:100%; max-width:280px;" title="Table is empty (0 records)">
+            <div class="row-vol-track" style="flex:1; height:8px; border-radius:99px; overflow:hidden;">
               <div style="width:0%; height:100%;"></div>
             </div>
-            <span class="muted" style="font-size:11px; font-weight:600; min-width:64px; text-align:right;">0 rows (0%)</span>
+            <span class="row-vol-empty muted" style="font-size:11px; font-weight:600; min-width:64px; text-align:right;">0 rows (0%)</span>
           </div>
         `;
       } else {
         graphHtml = `
-          <div style="display:flex; align-items:center; gap:10px; width:100%; max-width:280px;" title="${API.number(r)} rows (${pctOfTotal}% of total database records)">
-            <div style="flex:1; height:8px; background:#f1f5f9; border-radius:99px; overflow:hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.04);">
+          <div class="row-vol-wrap" style="display:flex; align-items:center; gap:10px; width:100%; max-width:280px;" title="${API.number(r)} rows (${pctOfTotal}% of total database records)">
+            <div class="row-vol-track" style="flex:1; height:8px; border-radius:99px; overflow:hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.04);">
               <div style="width:${barWidth}%; height:100%; background:${palette.gradient}; border-radius:99px; transition: width 0.7s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 1px 2px rgba(0,0,0,0.1);"></div>
             </div>
-            <span style="font-size:11px; font-weight:700; color:${palette.text}; min-width:68px; text-align:right;">
-              ${API.number(r)} <small style="font-size:10px; font-weight:600; opacity:0.8;">(${pctOfTotal}%)</small>
+            <span class="row-vol-text" style="font-size:11px; font-weight:700; color:${palette.text}; min-width:68px; text-align:right;">
+              ${API.number(r)} <small style="font-size:10px; font-weight:600; opacity:0.85;">(${pctOfTotal}%)</small>
             </span>
           </div>
         `;

@@ -115,3 +115,25 @@ registerForm.addEventListener('submit', async event => {
     button.textContent = 'Create Account & Enter';
   }
 });
+
+// Theme Toggle for Login Page
+const themeBtn = document.getElementById('loginThemeToggle');
+const themeIcon = document.getElementById('themeToggleIcon');
+const themeText = document.getElementById('themeToggleText');
+
+function updateLoginThemeUI() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  if (themeIcon) themeIcon.textContent = isDark ? '☀️' : '🌙';
+  if (themeText) themeText.textContent = isDark ? 'Light' : 'Dark';
+}
+
+if (themeBtn) {
+  updateLoginThemeUI();
+  themeBtn.addEventListener('click', () => {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const newTheme = isDark ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('admin_theme', newTheme);
+    updateLoginThemeUI();
+  });
+}
