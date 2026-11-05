@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Tables & Records - Admin Console</title>
   <link rel="stylesheet" href="/css/app.css">
+  <script>
+    (function(){var s=localStorage.getItem('admin_theme')||'system';var d=s==='dark'||(s==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d){document.documentElement.setAttribute('data-theme','dark');}else{document.documentElement.setAttribute('data-theme','light');}})();
+  </script>
   <style>
     .live-sync-pill{display:inline-flex;align-items:center;gap:7px;background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;padding:8px 14px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s}
     .live-sync-pill:hover{background:#d1fae5}

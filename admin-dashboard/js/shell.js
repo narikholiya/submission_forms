@@ -61,6 +61,65 @@ function renderSidebarProfile(user) {
 }
 window.renderSidebarProfile = renderSidebarProfile;
 
+// ==========================================================================
+// Theme Engine (Light / Dark / System)
+// ==========================================================================
+function getSavedTheme() {
+  return localStorage.getItem('admin_theme') || 'system';
+}
+
+function applyTheme(theme) {
+  const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  if (isDark) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  } else {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }
+
+  // Update theme button active states
+  document.querySelectorAll('.theme-choice-btn').forEach(btn => {
+    const val = btn.getAttribute('data-theme-value');
+    if (val === theme) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+}
+
+function setTheme(theme) {
+  localStorage.setItem('admin_theme', theme);
+  applyTheme(theme);
+}
+
+// OS system color scheme changes
+try {
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (getSavedTheme() === 'system') {
+      applyTheme('system');
+    }
+  });
+} catch (e) {
+  // fallback for older browsers
+}
+
+// Bind button clicks and apply theme
+function initThemeButtons() {
+  applyTheme(getSavedTheme());
+  document.querySelectorAll('.theme-choice-btn').forEach(btn => {
+    btn.onclick = () => {
+      const val = btn.getAttribute('data-theme-value');
+      if (val) setTheme(val);
+    };
+  });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initThemeButtons);
+} else {
+  initThemeButtons();
+}
+
 // Background ping to keep database connection warm and verify connectivity
 let isPinging = false;
 async function pingSync() {

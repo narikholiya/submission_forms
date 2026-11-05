@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Admin Settings - Database Console</title>
   <link rel="stylesheet" href="/css/app.css">
+  <script>
+    (function(){var s=localStorage.getItem('admin_theme')||'system';var d=s==='dark'||(s==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d){document.documentElement.setAttribute('data-theme','dark');}else{document.documentElement.setAttribute('data-theme','light');}})();
+  </script>
   <style>
     .settings-grid {
       display: grid;
@@ -174,6 +177,32 @@
           </span>
         </div>
       </header>
+
+      <!-- Appearance & Theme Selector (Top of Settings Tab) -->
+      <section class="theme-card" style="margin-bottom: 22px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
+          <div>
+            <h2 style="display: flex; align-items: center; gap: 10px; margin: 0 0 5px 0; font-size: 18px;">
+              🎨 Appearance & Theme
+            </h2>
+            <p class="muted" style="margin: 0; font-size: 13px;">Choose your preferred dashboard interface theme: Light, Dark, or follow System settings.</p>
+          </div>
+          <div class="theme-switcher-group" id="themeSwitcher">
+            <button type="button" class="theme-choice-btn" data-theme-value="light">
+              <span class="theme-btn-icon">☀️</span>
+              <span class="theme-btn-label">Light</span>
+            </button>
+            <button type="button" class="theme-choice-btn" data-theme-value="dark">
+              <span class="theme-btn-icon">🌙</span>
+              <span class="theme-btn-label">Dark</span>
+            </button>
+            <button type="button" class="theme-choice-btn" data-theme-value="system">
+              <span class="theme-btn-icon">💻</span>
+              <span class="theme-btn-label">System</span>
+            </button>
+          </div>
+        </div>
+      </section>
 
       <div class="settings-grid">
         <!-- Left: Profile Summary Card -->
