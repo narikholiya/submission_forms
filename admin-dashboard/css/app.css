@@ -66,6 +66,15 @@ body {
   font-size: 15px;
   flex-shrink: 0;
 }
+.nav-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  margin-right: 10px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  display: inline-block;
+}
 
 .sidebar nav {
   display: grid;
