@@ -13,7 +13,7 @@ RUN npm install --omit=dev \
 COPY server.js ./
 COPY public ./public
 
-RUN mkdir -p /app/uploads/resumes \
+RUN mkdir -p /app/uploads/resumes /app/uploads/avatars \
     && chown -R node:node /app
 
 USER node

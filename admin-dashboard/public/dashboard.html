@@ -1,1 +1,288 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Database Overview</title><link rel="stylesheet" href="/css/app.css"></head><body><div id="appShell" class="shell"><aside class="sidebar"><a class="brand" href="/dashboard.html"><span class="brand-mark">DB</span><span><b>Database Console</b><small>Admin workspace</small></span></a><nav><a class="active" href="/dashboard.html">◫ &nbsp; Overview</a><a href="/database-details.html">▤ &nbsp; Database Details</a><a href="/tables-records.html">▦ &nbsp; Tables & Records</a></nav><div class="side-bottom"><span class="live-dot"></span> Connected workspace</div></aside><main class="main"><header class="topbar"><div><span class="eyebrow">DATABASE CONSOLE</span><h1>Overview</h1><p class="muted">Live information retrieved from your MySQL database.</p></div><div class="top-actions"><span id="dbName" class="pill">Loading database…</span><button class="btn" id="refreshBtn">↻ Refresh</button><button class="btn dark" id="logoutBtn">Sign out</button></div></header><section class="cards" id="statCards"><article class="stat"><span>Total tables</span><strong id="totalTables">—</strong><small>Tables in selected database</small></article><article class="stat"><span>Total records</span><strong id="totalRows">—</strong><small>Estimated row count</small></article><article class="stat"><span>Database size</span><strong id="dbSize">—</strong><small>Data + index allocation</small></article><article class="stat"><span>MySQL version</span><strong id="dbVersion">—</strong><small id="dbEngine">Storage engine details</small></article></section><section class="panel-grid"><article class="panel"><div class="panel-head"><div><h2>Database health</h2><p class="muted">Backend and database connection</p></div><span id="healthBadge" class="status">Checking</span></div><div class="health-line"><span class="health-orb"></span><div><b id="healthText">Checking database connection</b><small id="healthSub" class="muted">Waiting for API response</small></div></div><div class="panel-foot"><span>Last updated</span><b id="lastUpdated">—</b></div></article><article class="panel"><div class="panel-head"><div><h2>Table distribution</h2><p class="muted">Estimated records per table</p></div><a href="/tables-records.html">Browse tables →</a></div><div id="distribution" class="distribution"><p class="muted">Loading table statistics…</p></div></article></section><section class="panel"><div class="panel-head"><div><h2>Tables & storage</h2><p class="muted">Live table metadata from INFORMATION_SCHEMA</p></div><a href="/database-details.html">View schema →</a></div><div class="table-wrap"><table><thead><tr><th>Table</th><th>Engine</th><th>Rows</th><th>Data size</th><th>Index size</th><th></th></tr></thead><tbody id="tablesBody"><tr><td colspan="6" class="muted">Loading…</td></tr></tbody></table></div></section><div id="pageError" class="error"></div></main></div><script src="/js/api.js"></script><script src="/js/shell.js"></script><script src="/js/dashboard.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Database Overview - Admin Console</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <style>
+    .live-sync-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .live-sync-pill:hover {
+      background: #d1fae5;
+    }
+    .sync-pulse-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #10b981;
+      display: inline-block;
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+      animation: syncPulse 2s infinite;
+    }
+    @keyframes syncPulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { transform: scale(1.1); box-shadow: 0 0 0 7px rgba(16, 185, 129, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+    .new-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      background: #ecfdf5;
+      color: #047857;
+      border: 1px solid #a7f3d0;
+      border-radius: 99px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+    }
+    .new-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #10b981;
+      display: inline-block;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(1.2); }
+    }
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(17, 24, 39, 0.6);
+      display: none; place-items: center; z-index: 1000; padding: 20px;
+      backdrop-filter: blur(2px);
+    }
+    .modal-card {
+      background: #fff; width: min(800px, 100%); max-height: 90vh;
+      border-radius: 16px; box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .modal-head {
+      padding: 18px 24px; border-bottom: 1px solid #edf2f7;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .modal-body {
+      padding: 24px; overflow-y: auto; display: grid; gap: 14px;
+    }
+    .field-row {
+      display: grid; grid-template-columns: 180px 1fr; gap: 12px;
+      padding-bottom: 10px; border-bottom: 1px solid #f1f5f9;
+      font-size: 13px;
+    }
+    .field-label {
+      font-weight: 700; color: #475569; word-break: break-all;
+    }
+    .field-val {
+      color: #0f172a; word-break: break-word; font-family: inherit;
+    }
+    .field-val pre {
+      background: #f8fafc; padding: 10px; border-radius: 8px;
+      margin: 0; border: 1px solid #e2e8f0; font-family: monospace;
+      font-size: 12px; white-space: pre-wrap;
+    }
+    .filter-pills {
+      display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    }
+    .filter-pill {
+      border: 1px solid #e2e8f0; background: #fff; color: #64748b;
+      padding: 6px 12px; border-radius: 99px; font-size: 12px;
+      font-weight: 600; cursor: pointer; transition: all 0.2s;
+    }
+    .filter-pill.active {
+      background: #245ff4; color: #fff; border-color: #245ff4;
+    }
+  </style>
+</head>
+<body>
+  <div id="appShell" class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="/dashboard.html">
+        <span class="brand-mark">DB</span>
+        <span><b>Database Console</b><small>Admin workspace</small></span>
+      </a>
+      <nav>
+        <a class="active" href="/dashboard.html">◫ &nbsp; Overview</a>
+        <a href="/database-details.html">▤ &nbsp; Database Details</a>
+        <a href="/tables-records.html">▦ &nbsp; Tables & Records</a>
+        <hr style="border:0; border-top:1px solid #e7ebf2; margin: 10px 0;">
+        <a href="http://localhost:5000" target="_blank" style="color: #245df5;">📋 &nbsp; Public Forms ↗</a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <span class="eyebrow">DATABASE CONSOLE</span>
+          <h1>Overview</h1>
+          <p class="muted">Live information retrieved from your MySQL database.</p>
+        </div>
+        <div class="top-actions">
+          <span class="live-sync-pill" title="Live Database Sync (1s)">
+            <span class="sync-pulse-dot"></span>
+            <b>Live Sync</b>
+          </span>
+        </div>
+      </header>
+
+      <section class="cards" id="statCards">
+        <article class="stat">
+          <span>Total tables</span>
+          <strong id="totalTables">—</strong>
+          <small>Tables in selected database</small>
+        </article>
+        <article class="stat">
+          <span>Total records</span>
+          <strong id="totalRows">—</strong>
+          <small>Live total row count</small>
+        </article>
+        <article class="stat">
+          <span>Database size</span>
+          <strong id="dbSize">—</strong>
+          <small>Data + index allocation</small>
+        </article>
+        <article class="stat">
+          <span>MySQL version</span>
+          <strong id="dbVersion">—</strong>
+          <small id="dbEngine">Storage engine details</small>
+        </article>
+      </section>
+
+      <section class="panel-grid">
+        <article class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Database health</h2>
+              <p class="muted">Backend and database connection</p>
+            </div>
+            <span id="healthBadge" class="status">Checking</span>
+          </div>
+          <div class="health-line">
+            <span class="health-orb"></span>
+            <div>
+              <b id="healthText">Checking database connection</b>
+              <small id="healthSub" class="muted">Waiting for API response</small>
+            </div>
+          </div>
+          <div class="panel-foot">
+            <span>Last updated</span>
+            <b id="lastUpdated">—</b>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Table distribution</h2>
+              <p class="muted">Live records per table</p>
+            </div>
+            <a href="/tables-records.html">Browse tables →</a>
+          </div>
+          <div id="distribution" class="distribution">
+            <p class="muted">Loading table statistics…</p>
+          </div>
+        </article>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>Tables & storage</h2>
+            <p class="muted">Live table metadata from INFORMATION_SCHEMA</p>
+          </div>
+          <a href="/database-details.html">View schema →</a>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Table</th>
+                <th>Engine</th>
+                <th>Rows</th>
+                <th>Data size</th>
+                <th>Index size</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="tablesBody">
+              <tr><td colspan="6" class="muted">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Recent Submissions & Applications (Showing All New Entries) -->
+      <section class="panel">
+        <div class="panel-head" style="flex-wrap: wrap; gap: 14px;">
+          <div>
+            <h2 style="display:flex; align-items:center; gap: 10px;">
+              Recent Submissions & Entries
+              <span id="entriesCountBadge" class="pill" style="font-size:11px; padding:3px 8px;">Live</span>
+            </h2>
+            <p class="muted">All new submissions and career applications received in real-time</p>
+          </div>
+          <div class="top-actions" style="margin: 0;">
+            <div class="filter-pills">
+              <button class="filter-pill active" data-filter="all">All Entries</button>
+              <button class="filter-pill" data-filter="submissions">General Form</button>
+              <button class="filter-pill" data-filter="career_applications">Careers</button>
+            </div>
+            <input id="entrySearch" class="search" style="min-width: 180px; padding: 7px 12px; font-size: 13px;" placeholder="Search entries…">
+            <a class="btn" href="/tables-records.html">Browse in Data Table →</a>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Type</th>
+                <th>Name / Applicant</th>
+                <th>Email</th>
+                <th>Company / Position</th>
+                <th>Details / Message</th>
+                <th>Submitted</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="recentSubmissionsBody">
+              <tr><td colspan="8" class="muted">Loading live entries…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <div id="pageError" class="error"></div>
+    </main>
+  </div>
+
+  <!-- Entry Details Modal -->
+  <div id="entryDetailModal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3 id="entryModalTitle" style="margin:0; font-size: 17px;">Entry Details</h3>
+        <button class="btn" id="closeEntryModalBtn" style="padding: 4px 10px; font-weight: bold;">✕</button>
+      </div>
+      <div id="entryModalBody" class="modal-body"></div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/shell.js"></script>
+  <script src="/js/dashboard.js"></script>
+</body>
+</html>

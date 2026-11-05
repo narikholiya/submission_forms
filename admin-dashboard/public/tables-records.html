@@ -1,1 +1,138 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tables & Records</title><link rel="stylesheet" href="/css/app.css"></head><body><div class="shell"><aside class="sidebar"><a class="brand" href="/dashboard.html"><span class="brand-mark">DB</span><span><b>Database Console</b><small>Admin workspace</small></span></a><nav><a href="/dashboard.html">◫ &nbsp; Overview</a><a href="/database-details.html">▤ &nbsp; Database Details</a><a class="active" href="/tables-records.html">▦ &nbsp; Tables & Records</a></nav><div class="side-bottom"><span class="live-dot"></span> Connected workspace</div></aside><main class="main"><header class="topbar"><div><span class="eyebrow">DATABASE CONSOLE / DATA BROWSER</span><h1>Tables & records</h1><p class="muted">Browse live records. Sensitive columns are masked by the backend.</p></div><div class="top-actions"><button class="btn" id="logoutBtn">Sign out</button></div></header><section class="panel"><div class="panel-head"><div><h2>Select a table</h2><p class="muted">Tables are discovered from the connected database.</p></div></div><div id="tableChips" class="chips">Loading tables…</div></section><section class="panel"><div class="panel-head"><div><h2 id="selectedTable">Choose a table</h2><p id="tableMeta" class="muted">Select one of the tables above to load its records.</p></div><div class="top-actions"><input id="recordSearch" class="search" placeholder="Search records…" disabled><button id="exportBtn" class="btn" disabled>Export CSV</button></div></div><div class="table-wrap"><table><thead id="recordsHead"></thead><tbody id="recordsBody"><tr><td class="muted">No table selected.</td></tr></tbody></table></div><div class="pagination"><span id="pageInfo" class="muted">—</span><div><button class="btn" id="prevPage" disabled>Previous</button><button class="btn" id="nextPage" disabled>Next</button></div></div></section><div id="pageError" class="error"></div></main></div><script src="/js/api.js"></script><script src="/js/shell.js"></script><script src="/js/tables-records.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tables & Records - Admin Console</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <style>
+    .live-sync-pill{display:inline-flex;align-items:center;gap:7px;background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;padding:8px 14px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s}
+    .live-sync-pill:hover{background:#d1fae5}
+    .sync-pulse-dot{width:9px;height:9px;border-radius:50%;background:#10b981;display:inline-block;box-shadow:0 0 0 0 rgba(16, 185, 129, 0.7);animation:syncPulse 2s infinite}
+    @keyframes syncPulse{0%{transform:scale(0.95);box-shadow:0 0 0 0 rgba(16, 185, 129, 0.7)}70%{transform:scale(1.1);box-shadow:0 0 0 7px rgba(16, 185, 129, 0)}100%{transform:scale(0.95);box-shadow:0 0 0 0 rgba(16, 185, 129, 0)}}
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(17, 24, 39, 0.6);
+      display: none; place-items: center; z-index: 1000; padding: 20px;
+      backdrop-filter: blur(2px);
+    }
+    .modal-card {
+      background: #fff; width: min(800px, 100%); max-height: 90vh;
+      border-radius: 16px; box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .modal-head {
+      padding: 18px 24px; border-bottom: 1px solid #edf2f7;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .modal-body {
+      padding: 24px; overflow-y: auto; display: grid; gap: 14px;
+    }
+    .field-row {
+      display: grid; grid-template-columns: 180px 1fr; gap: 12px;
+      padding-bottom: 10px; border-bottom: 1px solid #f1f5f9;
+      font-size: 13px;
+    }
+    .field-label {
+      font-weight: 700; color: #475569; word-break: break-all;
+    }
+    .field-val {
+      color: #0f172a; word-break: break-word; font-family: inherit;
+    }
+    .field-val pre {
+      background: #f8fafc; padding: 10px; border-radius: 8px;
+      margin: 0; border: 1px solid #e2e8f0; font-family: monospace;
+      font-size: 12px; white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="/dashboard.html">
+        <span class="brand-mark">DB</span>
+        <span><b>Database Console</b><small>Admin workspace</small></span>
+      </a>
+      <nav>
+        <a href="/dashboard.html">◫ &nbsp; Overview</a>
+        <a href="/database-details.html">▤ &nbsp; Database Details</a>
+        <a href="/tables-records.html" class="active">▦ &nbsp; Tables & Records</a>
+        <hr style="border:0; border-top:1px solid #e7ebf2; margin: 10px 0;">
+        <a href="http://localhost:5000" target="_blank" style="color: #245df5;">📋 &nbsp; Public Forms ↗</a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <span class="eyebrow">DATABASE CONSOLE / DATA BROWSER</span>
+          <h1>Tables & records</h1>
+          <p class="muted">Browse live table records, filter data in real-time, inspect details, and export to CSV.</p>
+        </div>
+        <div class="top-actions">
+          <span class="live-sync-pill" title="Live Database Sync (1s)">
+            <span class="sync-pulse-dot"></span>
+            <b>Live Sync</b>
+          </span>
+        </div>
+      </header>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>Select a table</h2>
+            <p class="muted">Click a table chip below to inspect its data</p>
+          </div>
+        </div>
+        <div id="tableChips" class="chips">Loading tables…</div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <h2 id="selectedTable">Choose a table</h2>
+            <p id="tableMeta" class="muted">Select one of the tables above to load its records.</p>
+          </div>
+          <div class="top-actions">
+            <input id="recordSearch" class="search" placeholder="Search records in real-time…" disabled>
+            <button id="exportBtn" class="btn" disabled>Export CSV</button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead id="recordsHead"></thead>
+            <tbody id="recordsBody">
+              <tr><td class="muted">No table selected.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="pagination">
+          <span id="pageInfo" class="muted">—</span>
+          <div>
+            <button class="btn" id="prevPage" disabled>Previous</button>
+            <button class="btn" id="nextPage" disabled>Next</button>
+          </div>
+        </div>
+      </section>
+
+      <div id="pageError" class="error"></div>
+    </main>
+  </div>
+
+  <!-- Record Details Modal -->
+  <div id="detailModal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3 id="modalTitle" style="margin:0; font-size: 17px;">Record Details</h3>
+        <button class="btn" id="closeModalBtn" style="padding: 4px 10px; font-weight: bold;">✕</button>
+      </div>
+      <div id="modalBody" class="modal-body"></div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/shell.js"></script>
+  <script src="/js/tables-records.js"></script>
+</body>
+</html>

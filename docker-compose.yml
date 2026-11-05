@@ -15,11 +15,23 @@ services:
         condition: service_started
     volumes:
       - resume_data:/app/uploads/resumes
+      - avatar_data:/app/uploads/avatars
     networks:
       - form_network
     read_only: true
     tmpfs:
       - /tmp
+
+  admin-dashboard:
+    build: ./admin-dashboard
+    container_name: form_admin_dashboard
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    networks:
+      - form_network
 
   mysql:
     image: mysql:8.0
@@ -55,6 +67,7 @@ services:
 volumes:
   mysql_data:
   resume_data:
+  avatar_data:
 
 networks:
   form_network:

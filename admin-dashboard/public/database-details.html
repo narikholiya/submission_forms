@@ -1,1 +1,84 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Database Details</title><link rel="stylesheet" href="/css/app.css"></head><body><div class="shell"><aside class="sidebar"><a class="brand" href="/dashboard.html"><span class="brand-mark">DB</span><span><b>Database Console</b><small>Admin workspace</small></span></a><nav><a href="/dashboard.html">◫ &nbsp; Overview</a><a class="active" href="/database-details.html">▤ &nbsp; Database Details</a><a href="/tables-records.html">▦ &nbsp; Tables & Records</a></nav><div class="side-bottom"><span class="live-dot"></span> Connected workspace</div></aside><main class="main"><header class="topbar"><div><span class="eyebrow">DATABASE CONSOLE / SCHEMA</span><h1>Database details & schema</h1><p class="muted">Inspect tables, columns, keys and indexes.</p></div><div class="top-actions"><button class="btn" id="logoutBtn">Sign out</button></div></header><section class="cards compact"><article class="stat"><span>Database</span><strong id="databaseName">—</strong></article><article class="stat"><span>MySQL version</span><strong id="version">—</strong></article><article class="stat"><span>Tables</span><strong id="tableCount">—</strong></article><article class="stat"><span>Allocated size</span><strong id="size">—</strong></article></section><section class="panel"><div class="panel-head"><div><h2>Database tables</h2><p class="muted">Choose a table to inspect its schema.</p></div><input id="tableSearch" class="search" placeholder="Filter tables…"></div><div id="schemaTables" class="schema-list">Loading…</div></section><div id="pageError" class="error"></div></main></div><script src="/js/api.js"></script><script src="/js/shell.js"></script><script src="/js/database-details.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Database Details & Schema - Admin Console</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <style>
+    .live-sync-pill{display:inline-flex;align-items:center;gap:7px;background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;padding:8px 14px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s}
+    .live-sync-pill:hover{background:#d1fae5}
+    .sync-pulse-dot{width:9px;height:9px;border-radius:50%;background:#10b981;display:inline-block;box-shadow:0 0 0 0 rgba(16, 185, 129, 0.7);animation:syncPulse 2s infinite}
+    @keyframes syncPulse{0%{transform:scale(0.95);box-shadow:0 0 0 0 rgba(16, 185, 129, 0.7)}70%{transform:scale(1.1);box-shadow:0 0 0 7px rgba(16, 185, 129, 0)}100%{transform:scale(0.95);box-shadow:0 0 0 0 rgba(16, 185, 129, 0)}}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="/dashboard.html">
+        <span class="brand-mark">DB</span>
+        <span><b>Database Console</b><small>Admin workspace</small></span>
+      </a>
+      <nav>
+        <a href="/dashboard.html">◫ &nbsp; Overview</a>
+        <a class="active" href="/database-details.html">▤ &nbsp; Database Details</a>
+        <a href="/tables-records.html">▦ &nbsp; Tables & Records</a>
+        <hr style="border:0; border-top:1px solid #e7ebf2; margin: 10px 0;">
+        <a href="http://localhost:5000" target="_blank" style="color: #245df5;">📋 &nbsp; Public Forms ↗</a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <span class="eyebrow">DATABASE CONSOLE / SCHEMA</span>
+          <h1>Database details & schema</h1>
+          <p class="muted">Inspect tables, columns, keys and indexes.</p>
+        </div>
+        <div class="top-actions">
+          <span class="live-sync-pill" title="Live Database Sync (1s)">
+            <span class="sync-pulse-dot"></span>
+            <b>Live Sync</b>
+          </span>
+        </div>
+      </header>
+
+      <section class="cards compact">
+        <article class="stat">
+          <span>Database</span>
+          <strong id="databaseName">—</strong>
+        </article>
+        <article class="stat">
+          <span>MySQL version</span>
+          <strong id="version">—</strong>
+        </article>
+        <article class="stat">
+          <span>Tables</span>
+          <strong id="tableCount">—</strong>
+        </article>
+        <article class="stat">
+          <span>Allocated size</span>
+          <strong id="size">—</strong>
+        </article>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>Database tables</h2>
+            <p class="muted">Choose a table to inspect its schema.</p>
+          </div>
+          <input id="tableSearch" class="search" placeholder="Filter tables…">
+        </div>
+        <div id="schemaTables" class="schema-list">Loading…</div>
+      </section>
+
+      <div id="pageError" class="error"></div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/shell.js"></script>
+  <script src="/js/database-details.js"></script>
+</body>
+</html>

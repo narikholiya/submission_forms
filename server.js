@@ -13,13 +13,25 @@ require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const ADMIN_SESSION_TTL_MS = 8 * 60 * 60 * 1000;
+const adminSessions = new Map();
 
 app.disable("x-powered-by");
-app.use(helmet());
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: "100kb" }));
 app.use(express.urlencoded({ extended: true, limit: "100kb" }));
 
 app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(path.join(__dirname, "admin-dashboard", "public")));
+app.use("/css", express.static(path.join(__dirname, "admin-dashboard", "css")));
+app.use("/js", express.static(path.join(__dirname, "admin-dashboard", "js")));
+app.use("/uploads/avatars", express.static(path.join(__dirname, "uploads", "avatars")));
+
+app.get("/login", (req, res) => res.redirect("/login.html"));
+app.get("/dashboard", (req, res) => res.redirect("/dashboard.html"));
+app.get("/admin", (req, res) => res.redirect("/login.html"));
+app.get("/forms", (req, res) => res.redirect("/index.html"));
+app.get("/settings", (req, res) => res.redirect("/settings.html"));
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -28,7 +40,93 @@ const limiter = rateLimit({
   legacyHeaders: false
 });
 
-app.use("/api/", limiter);
+// Public form endpoints need abuse protection; dashboard reads refresh regularly.
+app.use(["/api/submissions", "/api/careers"], limiter);
+
+function parseCookies(header = "") {
+  return Object.fromEntries(
+    header.split(";").map(item => item.trim()).filter(Boolean).map(item => {
+      const separator = item.indexOf("=");
+      return separator === -1
+        ? [item, ""]
+        : [item.slice(0, separator), decodeURIComponent(item.slice(separator + 1))];
+    })
+  );
+}
+
+function secureEqual(first, second) {
+  const firstBuffer = Buffer.from(String(first || ""));
+  const secondBuffer = Buffer.from(String(second || ""));
+  return firstBuffer.length === secondBuffer.length && crypto.timingSafeEqual(firstBuffer, secondBuffer);
+}
+
+function hashPassword(password, salt = crypto.randomBytes(16).toString("hex")) {
+  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
+  return { hash, salt };
+}
+
+function verifyPassword(password, storedHash, salt) {
+  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
+  const hashBuffer = Buffer.from(hash);
+  const storedBuffer = Buffer.from(storedHash);
+  return hashBuffer.length === storedBuffer.length && crypto.timingSafeEqual(hashBuffer, storedBuffer);
+}
+
+function verifySecretKey(providedKey) {
+  const configuredKey = process.env.ADMIN_SECRET_KEY || "admin-secret-2026";
+  const providedBuffer = Buffer.from(String(providedKey || ""));
+  const configuredBuffer = Buffer.from(configuredKey);
+  if (providedBuffer.length !== configuredBuffer.length) return false;
+  return crypto.timingSafeEqual(providedBuffer, configuredBuffer);
+}
+
+function setAdminSessionCookie(res, token) {
+  const secure = process.env.ADMIN_COOKIE_SECURE === "true" ? "; Secure" : "";
+  res.setHeader(
+    "Set-Cookie",
+    `admin_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${ADMIN_SESSION_TTL_MS / 1000}${secure}`
+  );
+}
+
+function requireAdmin(req, res, next) {
+  const token = parseCookies(req.headers.cookie).admin_session;
+  const session = token && adminSessions.get(token);
+  if (!session || session.expiresAt < Date.now()) {
+    if (token) adminSessions.delete(token);
+    return res.status(401).json({ message: "Please sign in to continue." });
+  }
+  req.admin = session;
+  next();
+}
+
+function escapeIdentifier(identifier) {
+  return `\`${String(identifier).replace(/`/g, "``")}\``;
+}
+
+async function getAdminTables() {
+  const [tables] = await db.execute(
+    `SELECT TABLE_NAME AS name, ENGINE AS engine, TABLE_ROWS AS \`rows\`,
+            DATA_LENGTH AS dataBytes, INDEX_LENGTH AS indexBytes
+       FROM information_schema.TABLES
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE'
+      ORDER BY TABLE_NAME`
+  );
+  // Get live exact row counts for accurate dashboard metrics
+  for (const table of tables) {
+    try {
+      const [[{ count }]] = await db.query(`SELECT COUNT(*) AS count FROM \`${table.name}\``);
+      table.rows = Number(count);
+    } catch {
+      // keep information_schema row count
+    }
+  }
+  return tables;
+}
+
+async function findAdminTable(name) {
+  const tables = await getAdminTables();
+  return tables.find(table => table.name === name);
+}
 
 // MySQL connection pool
 const db = mysql.createPool({
@@ -70,6 +168,31 @@ const upload = multer({
       return cb(new Error("Only PDF, DOC and DOCX files allowed"));
     }
 
+    cb(null, true);
+  }
+});
+
+// Admin Avatar Upload
+const avatarDir = path.join(__dirname, "uploads", "avatars");
+fs.mkdirSync(avatarDir, { recursive: true });
+
+const avatarStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, avatarDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `avatar-${Date.now()}-${crypto.randomBytes(4).toString("hex")}${ext}`);
+  }
+});
+
+const avatarUpload = multer({
+  storage: avatarStorage,
+  limits: { fileSize: 3 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (!allowed.includes(ext)) {
+      return cb(new Error("Only PNG, JPG, JPEG, WEBP, and GIF images are allowed."));
+    }
     cb(null, true);
   }
 });
@@ -127,7 +250,67 @@ async function initializeDatabase() {
     )
   `);
 
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS admin_users (
+      id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(255),
+      email VARCHAR(255) NOT NULL UNIQUE,
+      password_hash VARCHAR(255) NOT NULL,
+      password_salt VARCHAR(255) NOT NULL,
+      avatar_url VARCHAR(500) DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_admin_email (email)
+    )
+  `);
+
+  try {
+    await db.query("ALTER TABLE admin_users ADD COLUMN avatar_url VARCHAR(500) DEFAULT NULL");
+  } catch (colErr) {
+    // Column already exists or error ignored
+  }
+
   console.log("Database tables initialized");
+
+  try {
+    const [[adminCount]] = await db.query("SELECT COUNT(*) AS count FROM admin_users");
+    if (Number(adminCount.count) === 0 && process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
+      const { hash, salt } = hashPassword(process.env.ADMIN_PASSWORD);
+      await db.execute(
+        "INSERT INTO admin_users (name, email, password_hash, password_salt) VALUES (?, ?, ?, ?)",
+        ["Super Admin", process.env.ADMIN_EMAIL.trim().toLowerCase(), hash, salt]
+      );
+      console.log("Default admin account created in admin_users table");
+    }
+
+    const [[subCount]] = await db.query("SELECT COUNT(*) AS count FROM submissions");
+    if (Number(subCount.count) === 0) {
+      await db.query(`
+        INSERT INTO submissions 
+        (form_type, source, account_type, name, email, phone, company, location, message, plan, product, subject, extra, addons, currency, ip_address)
+        VALUES 
+        ('general', 'website', 'business', 'Alice Smith', 'alice.smith@acme.com', '+1-555-0101', 'Acme Corp', 'New York, USA', 'Interested in upgrading our enterprise software license.', 'Enterprise', 'Cloud Suite', 'Enterprise License Inquiry', '{"department": "Engineering", "team_size": 45}', '["priority_support", "dedicated_ip"]', 'USD', '127.0.0.1'),
+        ('general', 'landing_page', 'individual', 'Bob Jones', 'bob.jones@techcorp.io', '+1-555-0102', 'TechCorp', 'San Francisco, USA', 'Looking for integration details with REST APIs and webhooks.', 'Pro', 'API Gateway', 'Webhook Integration', '{"lead_score": 85}', '["analytics"]', 'USD', '127.0.0.1'),
+        ('general', 'referral', 'enterprise', 'Charlie Davis', 'charlie@globalcorp.org', '+44-20-7946-0919', 'Global Corp', 'London, UK', 'We would like to request a personalized product demo for our executive team.', 'Enterprise Plus', 'Full Platform', 'Executive Demo Request', '{"budget": "$50,000+"}', '["sla_guarantee", "24_7_phone"]', 'GBP', '127.0.0.1')
+      `);
+      console.log("Seed submissions created");
+    }
+
+    const [[careerCount]] = await db.query("SELECT COUNT(*) AS count FROM career_applications");
+    if (Number(careerCount.count) === 0) {
+      await db.query(`
+        INSERT INTO career_applications
+        (email, phone, position, position_type, experience, linkedin, github, source, resume_path, resume_original_name, user_agent, ip_address)
+        VALUES
+        ('diana.prince@example.org', '+1-555-0144', 'Senior Backend Engineer', 'Full-time', '6+ years', 'https://linkedin.com/in/dianaprince', 'https://github.com/dianaprince', 'careers_page', 'resumes/sample-diana-resume.pdf', 'Diana_Prince_Resume.pdf', 'Mozilla/5.0', '127.0.0.1'),
+        ('evan.wright@example.org', '+1-555-0199', 'Full Stack Developer', 'Full-time', '4 years', 'https://linkedin.com/in/evanwright', 'https://github.com/evanwright', 'referral', 'resumes/sample-evan-resume.pdf', 'Evan_Wright_CV.pdf', 'Mozilla/5.0', '127.0.0.1')
+      `);
+      console.log("Seed career applications created");
+    }
+  } catch (seedErr) {
+    console.warn("Could not seed initial data:", seedErr.message);
+  }
 }
 
 const submissionSchema = Joi.object({
@@ -183,6 +366,398 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
+// Admin Registration with Secret Key
+app.post("/api/admin/register", async (req, res) => {
+  try {
+    const { name, email, password, secret_key } = req.body || {};
+
+    // 1. Strict Secret Key verification
+    if (!secret_key || !verifySecretKey(secret_key)) {
+      return res.status(403).json({
+        success: false,
+        message: "Invalid or missing Admin Secret Key. Registration cannot be completed."
+      });
+    }
+
+    // 2. Validate input fields
+    if (!email || !String(email).includes("@") || String(email).length > 255) {
+      return res.status(400).json({ success: false, message: "A valid email address is required." });
+    }
+    if (!password || String(password).length < 6) {
+      return res.status(400).json({ success: false, message: "Password must be at least 6 characters long." });
+    }
+
+    const cleanEmail = String(email).trim().toLowerCase();
+    const cleanName = String(name || "Administrator").trim();
+
+    // 3. Check for existing admin
+    const [existing] = await db.execute("SELECT id FROM admin_users WHERE email = ?", [cleanEmail]);
+    if (existing && existing.length > 0) {
+      return res.status(409).json({ success: false, message: "An admin account with this email already exists." });
+    }
+
+    // 4. Hash password with secure scrypt salt
+    const { hash, salt } = hashPassword(password);
+    const [result] = await db.execute(
+      "INSERT INTO admin_users (name, email, password_hash, password_salt) VALUES (?, ?, ?, ?)",
+      [cleanName, cleanEmail, hash, salt]
+    );
+
+    // 5. Establish authenticated admin session
+    const token = crypto.randomBytes(32).toString("hex");
+    adminSessions.set(token, {
+      email: cleanEmail,
+      name: cleanName,
+      id: result.insertId,
+      expiresAt: Date.now() + ADMIN_SESSION_TTL_MS
+    });
+    setAdminSessionCookie(res, token);
+
+    res.status(201).json({
+      success: true,
+      message: "Admin account created successfully.",
+      email: cleanEmail,
+      name: cleanName
+    });
+  } catch (error) {
+    console.error("Admin registration failed:", error);
+    res.status(500).json({ success: false, message: "Failed to create admin account." });
+  }
+});
+
+// Admin Login
+app.post("/api/admin/login", async (req, res) => {
+  const { email, password } = req.body || {};
+  if (!email || !password) {
+    return res.status(400).json({ message: "Email and password are required." });
+  }
+
+  const cleanEmail = String(email).trim().toLowerCase();
+
+  try {
+    let authenticatedUser = null;
+
+    // Check database admin_users first
+    const [users] = await db.execute(
+      "SELECT id, name, email, password_hash, password_salt FROM admin_users WHERE email = ?",
+      [cleanEmail]
+    );
+
+    if (users && users.length > 0) {
+      const user = users[0];
+      if (verifyPassword(password, user.password_hash, user.password_salt)) {
+        authenticatedUser = { email: user.email, name: user.name, id: user.id };
+      }
+    } else {
+      // Fallback check against configured environment variables
+      const configuredEmail = (process.env.ADMIN_EMAIL || "").trim().toLowerCase();
+      const configuredPassword = process.env.ADMIN_PASSWORD || "";
+      if (configuredEmail && secureEqual(cleanEmail, configuredEmail) && secureEqual(password, configuredPassword)) {
+        authenticatedUser = { email: configuredEmail, name: "Super Admin", id: 0 };
+      }
+    }
+
+    if (!authenticatedUser) {
+      return res.status(401).json({ message: "Invalid email or password." });
+    }
+
+    const token = crypto.randomBytes(32).toString("hex");
+    adminSessions.set(token, {
+      email: authenticatedUser.email,
+      name: authenticatedUser.name,
+      id: authenticatedUser.id,
+      expiresAt: Date.now() + ADMIN_SESSION_TTL_MS
+    });
+    setAdminSessionCookie(res, token);
+    res.json({ email: authenticatedUser.email, name: authenticatedUser.name });
+  } catch (error) {
+    console.error("Login verification error:", error);
+    res.status(500).json({ message: "Authentication service error." });
+  }
+});
+
+app.post("/api/admin/logout", requireAdmin, (req, res) => {
+  const token = parseCookies(req.headers.cookie).admin_session;
+  if (token) adminSessions.delete(token);
+  res.setHeader("Set-Cookie", "admin_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0");
+  res.status(204).end();
+});
+
+app.get("/api/admin/me", requireAdmin, (req, res) => {
+  res.json({ email: req.admin.email, name: req.admin.name || "Administrator" });
+});
+
+// Profile Management Endpoints
+app.get("/api/admin/profile", requireAdmin, async (req, res, next) => {
+  try {
+    const cleanEmail = String(req.admin.email || "").trim().toLowerCase();
+    const [users] = await db.execute(
+      "SELECT id, name, email, avatar_url, created_at FROM admin_users WHERE email = ?",
+      [cleanEmail]
+    );
+    if (users && users.length > 0) {
+      res.json({
+        id: users[0].id,
+        name: users[0].name || req.admin.name || "Administrator",
+        email: users[0].email,
+        avatar_url: users[0].avatar_url || null,
+        created_at: users[0].created_at
+      });
+    } else {
+      res.json({
+        id: 0,
+        name: req.admin.name || "Super Admin",
+        email: req.admin.email,
+        avatar_url: null,
+        created_at: new Date()
+      });
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Rename / Update Admin Name
+app.put("/api/admin/profile", requireAdmin, async (req, res, next) => {
+  try {
+    const { name } = req.body || {};
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ success: false, message: "Display name cannot be empty." });
+    }
+    const cleanName = String(name).trim();
+    const cleanEmail = String(req.admin.email || "").trim().toLowerCase();
+
+    await db.execute(
+      "UPDATE admin_users SET name = ? WHERE email = ?",
+      [cleanName, cleanEmail]
+    );
+
+    req.admin.name = cleanName;
+
+    res.json({
+      success: true,
+      message: "Profile name updated successfully.",
+      name: cleanName
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Change Admin Password
+app.put("/api/admin/profile/password", requireAdmin, async (req, res, next) => {
+  try {
+    const { current_password, new_password } = req.body || {};
+    if (!current_password || !new_password) {
+      return res.status(400).json({ success: false, message: "Current password and new password are required." });
+    }
+    if (String(new_password).length < 6) {
+      return res.status(400).json({ success: false, message: "New password must be at least 6 characters long." });
+    }
+
+    const cleanEmail = String(req.admin.email || "").trim().toLowerCase();
+    const [users] = await db.execute(
+      "SELECT id, password_hash, password_salt FROM admin_users WHERE email = ?",
+      [cleanEmail]
+    );
+
+    if (!users || users.length === 0) {
+      return res.status(404).json({ success: false, message: "Admin user not found." });
+    }
+
+    const user = users[0];
+    if (!verifyPassword(current_password, user.password_hash, user.password_salt)) {
+      return res.status(400).json({ success: false, message: "Current password is incorrect." });
+    }
+
+    const { hash, salt } = hashPassword(new_password);
+    await db.execute(
+      "UPDATE admin_users SET password_hash = ?, password_salt = ? WHERE id = ?",
+      [hash, salt, user.id]
+    );
+
+    res.json({ success: true, message: "Password updated successfully." });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Upload Admin Avatar
+app.post("/api/admin/profile/avatar", requireAdmin, avatarUpload.single("avatar"), async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "Please select an image file to upload." });
+    }
+
+    const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+    const cleanEmail = String(req.admin.email || "").trim().toLowerCase();
+
+    await db.execute(
+      "UPDATE admin_users SET avatar_url = ? WHERE email = ?",
+      [avatarUrl, cleanEmail]
+    );
+
+    req.admin.avatar_url = avatarUrl;
+
+    res.json({
+      success: true,
+      message: "Avatar uploaded successfully.",
+      avatar_url: avatarUrl
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Real-time Recent Submissions & Entries Feed
+app.get("/api/admin/recent-entries", requireAdmin, async (req, res, next) => {
+  try {
+    const limit = Math.min(100, Math.max(1, Number.parseInt(req.query.limit, 10) || 50));
+    const filterType = req.query.type || "all";
+    const search = String(req.query.search || "").trim().toLowerCase();
+
+    let allEntries = [];
+
+    if (filterType === "all" || filterType === "submissions") {
+      const [subs] = await db.query(
+        `SELECT id, 'submission' as entry_type, form_type, name, email, phone, company,
+                location, subject, message, plan, product, currency, extra, addons, created_at
+           FROM submissions
+          ORDER BY id DESC LIMIT ?`,
+        [limit]
+      );
+      allEntries.push(...subs);
+    }
+
+    if (filterType === "all" || filterType === "career_applications") {
+      const [careers] = await db.query(
+        `SELECT id, 'career' as entry_type, position_type as form_type, position as name, email, phone,
+                position as company, experience as location, position as subject,
+                CONCAT('Experience: ', COALESCE(experience, 'N/A'), ' | Source: ', COALESCE(source, 'N/A')) as message,
+                resume_original_name as plan, cover_letter_original_name as product, 'USD' as currency,
+                JSON_OBJECT('linkedin', linkedin, 'github', github, 'resume', resume_path) as extra,
+                NULL as addons, created_at
+           FROM career_applications
+          ORDER BY id DESC LIMIT ?`,
+        [limit]
+      );
+      allEntries.push(...careers);
+    }
+
+    // Sort newest first
+    allEntries.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+
+    if (search) {
+      allEntries = allEntries.filter(e =>
+        (e.name && String(e.name).toLowerCase().includes(search)) ||
+        (e.email && String(e.email).toLowerCase().includes(search)) ||
+        (e.company && String(e.company).toLowerCase().includes(search)) ||
+        (e.subject && String(e.subject).toLowerCase().includes(search)) ||
+        (e.message && String(e.message).toLowerCase().includes(search)) ||
+        (e.form_type && String(e.form_type).toLowerCase().includes(search))
+      );
+    }
+
+    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+    const entriesWithNewFlag = allEntries.slice(0, limit).map(e => ({
+      ...e,
+      isNew: new Date(e.created_at).getTime() > oneDayAgo
+    }));
+
+    res.json({
+      total: entriesWithNewFlag.length,
+      entries: entriesWithNewFlag
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/admin/overview", requireAdmin, async (req, res, next) => {
+  try {
+    const tables = await getAdminTables();
+    const [[database]] = await db.query("SELECT DATABASE() AS name, VERSION() AS version, @@default_storage_engine AS defaultEngine");
+    res.json({
+      database: database.name,
+      version: database.version,
+      defaultEngine: database.defaultEngine,
+      totalTables: tables.length,
+      totalRows: tables.reduce((sum, table) => sum + Number(table.rows || 0), 0),
+      totalSizeBytes: tables.reduce((sum, table) => sum + Number(table.dataBytes || 0) + Number(table.indexBytes || 0), 0),
+      tables
+    });
+  } catch (error) { next(error); }
+});
+
+app.get("/api/admin/database", requireAdmin, async (req, res, next) => {
+  try {
+    const tables = await getAdminTables();
+    const [[database]] = await db.query("SELECT DATABASE() AS name, VERSION() AS version");
+    res.json({
+      database: database.name,
+      version: database.version,
+      totalTables: tables.length,
+      totalSizeBytes: tables.reduce((sum, table) => sum + Number(table.dataBytes || 0) + Number(table.indexBytes || 0), 0),
+      tables
+    });
+  } catch (error) { next(error); }
+});
+
+app.get("/api/admin/tables", requireAdmin, async (req, res, next) => {
+  try { res.json({ tables: await getAdminTables() }); } catch (error) { next(error); }
+});
+
+app.get("/api/admin/tables/:table/schema", requireAdmin, async (req, res, next) => {
+  try {
+    const table = await findAdminTable(req.params.table);
+    if (!table) return res.status(404).json({ message: "Table not found." });
+    const [columns] = await db.execute(
+      `SELECT COLUMN_NAME AS name, COLUMN_TYPE AS type, IS_NULLABLE = 'YES' AS nullable,
+              COLUMN_DEFAULT AS defaultValue, COLUMN_KEY AS \`key\`, EXTRA AS extra
+         FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION`,
+      [table.name]
+    );
+    const [indexes] = await db.execute(
+      `SELECT INDEX_NAME AS name, GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX) AS \`column\`,
+              NON_UNIQUE = 0 AS \`unique\`, INDEX_TYPE AS type
+         FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?
+        GROUP BY INDEX_NAME, NON_UNIQUE, INDEX_TYPE ORDER BY INDEX_NAME`,
+      [table.name]
+    );
+    res.json({ table: table.name, columns, indexes });
+  } catch (error) { next(error); }
+});
+
+app.get("/api/admin/tables/:table/records", requireAdmin, async (req, res, next) => {
+  try {
+    const table = await findAdminTable(req.params.table);
+    if (!table) return res.status(404).json({ message: "Table not found." });
+    const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, Number.parseInt(req.query.limit, 10) || 25));
+    const offset = (page - 1) * limit;
+    const [columnRows] = await db.execute(
+      "SELECT COLUMN_NAME AS name FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION",
+      [table.name]
+    );
+    const columns = columnRows.map(column => column.name);
+    const search = String(req.query.search || "").trim();
+    const where = search && columns.length
+      ? ` WHERE ${columns.map(column => `CAST(${escapeIdentifier(column)} AS CHAR) LIKE ?`).join(" OR ")}`
+      : "";
+    const searchValues = search ? columns.map(() => `%${search}%`) : [];
+    const identifier = escapeIdentifier(table.name);
+    const [[count]] = await db.execute(`SELECT COUNT(*) AS total FROM ${identifier}${where}`, searchValues);
+    const orderClause = columns.includes("id") ? " ORDER BY `id` DESC" : (columns.includes("created_at") ? " ORDER BY `created_at` DESC" : "");
+    const [records] = await db.query(
+      `SELECT * FROM ${identifier}${where}${orderClause} LIMIT ? OFFSET ?`,
+      [...searchValues, limit, offset]
+    );
+    res.json({ table: table.name, columns, records, total: Number(count.total) });
+  } catch (error) { next(error); }
+});
+
 // General form submission
 app.post("/api/submissions", async (req, res) => {
   try {
@@ -197,8 +772,8 @@ app.post("/api/submissions", async (req, res) => {
 
     const data = {
       ...value,
-      extra: value.extra ? JSON.stringify(value.extra) : null,
-      addons: value.addons ? JSON.stringify(value.addons) : null
+      extra: value.extra ? (typeof value.extra === 'object' ? JSON.stringify(value.extra) : value.extra) : null,
+      addons: value.addons ? (typeof value.addons === 'object' ? JSON.stringify(value.addons) : value.addons) : null
     };
 
     const [result] = await db.execute(
@@ -208,11 +783,22 @@ app.post("/api/submissions", async (req, res) => {
        extra, addons, currency, ip_address)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        data.form_type, data.source, data.account_type,
-        data.name, data.email, data.phone, data.company,
-        data.location, data.message, data.plan, data.product,
-        data.subject, data.extra, data.addons, data.currency,
-        clientIP(req)
+        data.form_type || "general",
+        data.source || null,
+        data.account_type || null,
+        data.name || null,
+        data.email,
+        data.phone || null,
+        data.company || null,
+        data.location || null,
+        data.message || null,
+        data.plan || null,
+        data.product || null,
+        data.subject || null,
+        data.extra || null,
+        data.addons || null,
+        data.currency || null,
+        clientIP(req) || null
       ]
     );
 
