@@ -585,20 +585,29 @@ body {
 
 .distribution {
   display: grid;
-  gap: 15px;
+  gap: 10px;
+  transition: all 0.25s ease;
 }
 .dist-row {
   display: grid;
-  grid-template-columns: 140px 1fr 75px;
+  grid-template-columns: 140px 1fr 60px;
   gap: 12px;
   align-items: center;
-  font-size: 12px;
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  transition: background 0.15s ease;
+  cursor: pointer;
+}
+.dist-row:hover {
+  background: #f1f5f9;
 }
 .dist-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 650;
+  color: #1e293b;
 }
 .bar {
   height: 9px;
@@ -609,12 +618,38 @@ body {
 .bar i {
   display: block;
   height: 100%;
-  background: #2862f5;
+  background: #245ff4;
   border-radius: 10px;
+  transition: width 0.3s ease;
 }
 .dist-count {
   text-align: right;
-  color: #71819b;
+  color: #64748b;
+  font-weight: 700;
+}
+.dist-toggle-box {
+  padding-top: 12px;
+  margin-top: 10px;
+  border-top: 1px solid #f1f5f9;
+  text-align: center;
+}
+.btn-dist-toggle {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #245ff4;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+.btn-dist-toggle:hover {
+  background: #eef4ff;
+  border-color: #cbd5e1;
 }
 
 /* Tables */

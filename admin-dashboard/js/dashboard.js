@@ -43,14 +43,7 @@ async function loadOverview() {
       </tr>
     `).join('') || '<tr><td colspan="6">No tables found.</td></tr>';
 
-    const max = Math.max(1, ...rows.map(t => Number(t.rows || 0)));
-    document.getElementById('distribution').innerHTML = rows.map(t => `
-      <div class="dist-row">
-        <span class="dist-name"><b>${API.escape(t.name)}</b></span>
-        <div class="bar"><i style="width:${Math.max(2, Number(t.rows || 0) / max * 100)}%"></i></div>
-        <span class="dist-count">${API.number(t.rows)}</span>
-      </div>
-    `).join('') || '<p class="muted">No tables found.</p>';
+    renderTableDistribution(rows);
 
     // 3. Load all new entries
     await loadRecentEntries();
@@ -384,6 +377,57 @@ function renderHealthDonut(d) {
     highlightMetric(currentHoveredMetricId);
   }
 }
+
+// Table Distribution: Responsive Expand / Collapse
+let isDistributionExpanded = false;
+let lastLoadedTables = [];
+const DIST_COLLAPSED_LIMIT = 4;
+
+function renderTableDistribution(rows) {
+  const container = document.getElementById('distribution');
+  const toggleBox = document.getElementById('distToggleBox');
+  const toggleBtn = document.getElementById('btnToggleDist');
+  if (!container) return;
+
+  lastLoadedTables = rows || [];
+
+  if (!rows || rows.length === 0) {
+    container.innerHTML = '<p class="muted">No tables found.</p>';
+    if (toggleBox) toggleBox.style.display = 'none';
+    return;
+  }
+
+  const max = Math.max(1, ...rows.map(t => Number(t.rows || 0)));
+  const shouldLimit = rows.length > DIST_COLLAPSED_LIMIT;
+  const visibleRows = (shouldLimit && !isDistributionExpanded)
+    ? rows.slice(0, DIST_COLLAPSED_LIMIT)
+    : rows;
+
+  container.innerHTML = visibleRows.map(t => `
+    <div class="dist-row" title="Click to view records for ${API.escape(t.name)}" onclick="location.href='/tables-records.html?table=${encodeURIComponent(t.name)}'">
+      <span class="dist-name"><b>${API.escape(t.name)}</b></span>
+      <div class="bar"><i style="width:${Math.max(2, (Number(t.rows || 0) / max) * 100)}%"></i></div>
+      <span class="dist-count">${API.number(t.rows)}</span>
+    </div>
+  `).join('');
+
+  if (toggleBox && toggleBtn) {
+    if (shouldLimit) {
+      toggleBox.style.display = 'block';
+      const hiddenCount = rows.length - DIST_COLLAPSED_LIMIT;
+      toggleBtn.innerHTML = isDistributionExpanded
+        ? `Show less tables ↑`
+        : `Show more tables (+${hiddenCount} more) ↓`;
+    } else {
+      toggleBox.style.display = 'none';
+    }
+  }
+}
+
+document.getElementById('btnToggleDist')?.addEventListener('click', () => {
+  isDistributionExpanded = !isDistributionExpanded;
+  renderTableDistribution(lastLoadedTables);
+});
 
 // Initial load and live 1-second polling from database
 loadOverview();
