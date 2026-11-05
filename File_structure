@@ -1,16 +1,51 @@
 form-management/
 │
-├── public/
-│   ├── index.html
-│   ├── style.css
-│   └── script.js
+├── admin-dashboard/                     # Production Nginx Admin Web App (Port 8080)
+│   ├── css/
+│   │   └── app.css                      # Unified styling, Light/Dark/System themes, animations
+│   ├── js/
+│   │   ├── api.js                       # Centralized API client & cookie/session helpers
+│   │   ├── dashboard.js                 # Overview metrics, charts, live sync & stats
+│   │   ├── database-crud.js             # Visual Table CRUD manager (Create/Drop Table, Add/Drop Col)
+│   │   ├── database-details.js          # In-depth database schemas, storage allocation & engine metrics
+│   │   ├── login.js                     # Admin authentication & account registration
+│   │   ├── settings.js                  # Profile management, password change, avatar uploads & themes
+│   │   ├── shell.js                     # Global sidebar navigation, theme switcher & profile pill
+│   │   ├── table-details.js             # Detailed single-table inspector & row viewer
+│   │   └── tables-records.js            # Tables & records manager, search, pagination & row deletion
+│   ├── public/
+│   │   ├── assets/                      # Icons, logos & visual media
+│   │   │   ├── crud.png
+│   │   │   ├── database.png
+│   │   │   ├── overview.png
+│   │   │   └── table-and-records.png
+│   │   ├── dashboard.html               # Main dashboard overview
+│   │   ├── database-crud.html           # Database CRUD & schema management interface
+│   │   ├── database-details.html        # Database details & storage breakdown
+│   │   ├── login.html                   # Admin authentication portal
+│   │   ├── settings.html                # Admin settings, avatar & theme preferences
+│   │   ├── table-details.html           # Single table records viewer
+│   │   └── tables-records.html          # Interactive tables & records browser
+│   ├── .dockerignore
+│   ├── Dockerfile                       # Multi-stage Nginx Alpine build
+│   └── nginx.conf                       # Reverse proxy (Port 8080 -> 5000), client limits & caching
 │
-├── uploads/
-│   └── resumes/
+├── Assests/                             # Source design assets & logos
 │
-├── server.js
-├── package.json
-├── Dockerfile
-├── docker-compose.yml
-├── .env
-└── .dockerignore
+├── public/                              # Public Form Submission Portal (Port 5000)
+│   ├── index.html                       # General submissions & career application forms
+│   ├── script.js                        # Client-side form validation & submission handling
+│   └── style.css                        # Responsive styling for the public portal
+│
+├── uploads/                             # Persistent runtime upload storage
+│   ├── avatars/                         # Admin profile pictures & avatars (20MB limit)
+│   └── resumes/                         # Candidate resumes & cover letters (Protected)
+│
+├── .dockerignore                        # Docker build exclusion rules
+├── .env                                 # Environment configuration (secrets, DB, SMTP, admin credentials)
+├── docker-compose.yml                   # Multi-service stack (backend, admin-dashboard, mysql, mailhog)
+├── Dockerfile                           # Node.js 22 Alpine production container
+├── File_structure                       # Project directory layout & component map
+├── package.json                         # Node.js dependencies & scripts
+├── README.md                            # Complete system documentation, architecture & guide
+└── server.js                            # Express API backend, MySQL pooling, security & business logic

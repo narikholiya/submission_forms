@@ -1242,21 +1242,31 @@ app.post(
   }
 );
 
-// Do not expose uploaded files as public static assets.
+// Central error handler - protects sensitive stack traces and SQL details
 app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
   console.error("Request error:", err.message);
-  res.status(400).json({
+  const status = typeof err.status === "number" ? err.status : 400;
+  const isInternal = err.sql || (err.code && String(err.code).startsWith("ER_"));
+  res.status(status).json({
     success: false,
-    message: err.message || "Invalid request"
+    message: isInternal ? "A database processing error occurred." : (err.message || "Invalid request")
   });
 });
+
+let serverInstance = null;
 
 async function startServer() {
   try {
     await initializeDatabase();
-    await transporter.verify();
+    try {
+      await transporter.verify();
+      console.log("SMTP service verified.");
+    } catch (smtpErr) {
+      console.warn("SMTP verification warning (MailHog might still be starting):", smtpErr.message);
+    }
 
-    app.listen(PORT, "0.0.0.0", () => {
+    serverInstance = app.listen(PORT, "0.0.0.0", () => {
       console.log(`Server running on port ${PORT}`);
     });
   } catch (error) {
@@ -1264,5 +1274,34 @@ async function startServer() {
     process.exit(1);
   }
 }
+
+// Graceful shutdown handling
+async function gracefulShutdown(signal) {
+  console.log(`Received ${signal}. Shutting down gracefully...`);
+  if (serverInstance) {
+    serverInstance.close(async () => {
+      console.log("HTTP server closed.");
+      try {
+        await db.end();
+        console.log("Database pool drained.");
+      } catch (err) {
+        console.error("Error draining database pool:", err.message);
+      }
+      process.exit(0);
+    });
+  } else {
+    process.exit(0);
+  }
+}
+
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection at:", promise, "reason:", reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught Exception thrown:", err);
+});
 
 startServer();
