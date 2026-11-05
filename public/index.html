@@ -1,0 +1,76 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Form Management</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="container">
+    <h1>Form Management</h1>
+
+    <section>
+      <h2>General Submission</h2>
+      <form id="submissionForm">
+        <input name="form_type" value="general" type="hidden">
+        <input name="source" value="website" type="hidden">
+
+        <input name="name" placeholder="Full name">
+        <input name="email" type="email" placeholder="Email" required>
+        <input name="phone" placeholder="Phone">
+        <input name="company" placeholder="Company">
+        <input name="location" placeholder="Location">
+        <input name="account_type" placeholder="Account type">
+        <input name="plan" placeholder="Plan">
+        <input name="product" placeholder="Product">
+        <input name="subject" placeholder="Subject">
+        <input name="currency" placeholder="Currency">
+        <textarea name="message" placeholder="Message"></textarea>
+
+        <button type="submit">Submit Form</button>
+      </form>
+    </section>
+
+    <hr>
+
+    <section>
+      <h2>Career Application</h2>
+      <form id="careerForm" enctype="multipart/form-data">
+        <input name="email" type="email" placeholder="Email" required>
+        <input name="phone" placeholder="Phone">
+        <input name="position" placeholder="Position" required>
+
+        <select name="position_type">
+          <option value="">Select position type</option>
+          <option>Full-time</option>
+          <option>Part-time</option>
+          <option>Internship</option>
+          <option>Remote</option>
+        </select>
+
+        <input name="experience" placeholder="Experience">
+        <input name="linkedin" placeholder="LinkedIn URL">
+        <input name="github" placeholder="GitHub URL">
+
+        <input type="hidden" name="source" value="website">
+
+        <label>Resume (PDF/DOC/DOCX)</label>
+        <input name="resume" type="file"
+          accept=".pdf,.doc,.docx" required>
+
+        <label>Cover Letter (Optional)</label>
+        <input name="cover_letter" type="file"
+          accept=".pdf,.doc,.docx">
+
+        <button type="submit">Apply Now</button>
+      </form>
+    </section>
+
+    <p id="result" role="status"></p>
+  </main>
+
+  <script src="/script.js"></script>
+</body>
+</html>

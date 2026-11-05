@@ -1,0 +1,61 @@
+
+services:
+  backend:
+    build: .
+    container_name: form_backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "5000:5000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+    volumes:
+      - resume_data:/app/uploads/resumes
+    networks:
+      - form_network
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  mysql:
+    image: mysql:8.0
+    container_name: form_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - form_network
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mysqladmin ping -h localhost -u root -p"$${MYSQL_ROOT_PASSWORD}"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: form_mailhog
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8025:8025"
+    networks:
+      - form_network
+
+volumes:
+  mysql_data:
+  resume_data:
+
+networks:
+  form_network:
+    driver: bridge

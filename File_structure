@@ -1,0 +1,16 @@
+form-management/
+│
+├── public/
+│   ├── index.html
+│   ├── style.css
+│   └── script.js
+│
+├── uploads/
+│   └── resumes/
+│
+├── server.js
+├── package.json
+├── Dockerfile
+├── docker-compose.yml
+├── .env
+└── .dockerignore
