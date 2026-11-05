@@ -3,6 +3,94 @@ let currentRecentTableFilter = 'all';
 let lastFilterTables = [];
 
 let isOverviewLoading = false;
+let hasInitialAnimated = false;
+const latestStats = {
+  totalTables: 0,
+  totalRows: 0,
+  totalSizeBytes: 0,
+  version: '8.0.46'
+};
+const statCardAnimators = new Map();
+
+function animateCounter(element, startVal, endVal, duration, formatter) {
+  if (!element) return;
+  if (statCardAnimators.has(element)) {
+    cancelAnimationFrame(statCardAnimators.get(element));
+    statCardAnimators.delete(element);
+  }
+
+  const startTime = performance.now();
+
+  function update(currentTime) {
+    const elapsed = currentTime - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const ease = 1 - Math.pow(1 - progress, 3);
+    const current = startVal + (endVal - startVal) * ease;
+
+    if (formatter) {
+      element.textContent = formatter(current, ease, progress);
+    } else {
+      element.textContent = API.number(Math.round(current));
+    }
+
+    if (progress < 1) {
+      const frameId = requestAnimationFrame(update);
+      statCardAnimators.set(element, frameId);
+    } else {
+      if (formatter) {
+        element.textContent = formatter(endVal, 1, 1);
+      } else {
+        element.textContent = API.number(Math.round(endVal));
+      }
+      statCardAnimators.delete(element);
+    }
+  }
+
+  const frameId = requestAnimationFrame(update);
+  statCardAnimators.set(element, frameId);
+}
+
+function triggerStatAnimation(type) {
+  if (type === 'tables') {
+    const el = document.getElementById('totalTables');
+    animateCounter(el, 0, latestStats.totalTables, 600, (v) => API.number(Math.round(v)));
+  } else if (type === 'records') {
+    const el = document.getElementById('totalRows');
+    animateCounter(el, 0, latestStats.totalRows, 700, (v) => API.number(Math.round(v)));
+  } else if (type === 'size') {
+    const el = document.getElementById('dbSize');
+    animateCounter(el, 0, latestStats.totalSizeBytes, 750, (bytesVal) => API.bytes(Math.round(bytesVal)));
+  } else if (type === 'version') {
+    const el = document.getElementById('dbVersion');
+    const verStr = String(latestStats.version || '8.0.46');
+    const parts = verStr.split('.');
+    if (parts.length >= 2) {
+      const major = Number(parts[0]) || 8;
+      const minor = Number(parts[1]) || 0;
+      const patch = Number(parts[2]) || 0;
+      const patchLen = parts[2] ? parts[2].length : 2;
+      animateCounter(el, 0, 1, 700, (_, ease, progress) => {
+        if (progress >= 1) return verStr;
+        const curMaj = Math.round(major * ease);
+        const curMin = Math.round(minor * ease);
+        const curPatch = Math.round(patch * ease).toString().padStart(patchLen, '0');
+        return `${curMaj}.${curMin}.${curPatch}`;
+      });
+    } else {
+      el.textContent = verStr;
+    }
+  }
+}
+
+function initStatCardHoverAnimations() {
+  const cards = document.querySelectorAll('#statCards .stat');
+  cards.forEach(card => {
+    card.addEventListener('mouseenter', () => {
+      const type = card.getAttribute('data-stat');
+      if (type) triggerStatAnimation(type);
+    });
+  });
+}
 
 async function loadOverview() {
   if (isOverviewLoading) return;
@@ -16,10 +104,29 @@ async function loadOverview() {
     const sideDb = document.getElementById('sideDbName');
     if (sideDb) sideDb.textContent = d.database;
 
-    document.getElementById('totalTables').textContent = API.number(d.totalTables);
-    document.getElementById('totalRows').textContent = API.number(d.totalRows);
-    document.getElementById('dbSize').textContent = API.bytes(d.totalSizeBytes);
-    document.getElementById('dbVersion').textContent = d.version;
+    latestStats.totalTables = Number(d.totalTables) || 0;
+    latestStats.totalRows = Number(d.totalRows) || 0;
+    latestStats.totalSizeBytes = Number(d.totalSizeBytes) || 0;
+    latestStats.version = String(d.version || '8.0.46');
+
+    const ttEl = document.getElementById('totalTables');
+    const trEl = document.getElementById('totalRows');
+    const dsEl = document.getElementById('dbSize');
+    const dvEl = document.getElementById('dbVersion');
+
+    if (!hasInitialAnimated) {
+      hasInitialAnimated = true;
+      triggerStatAnimation('tables');
+      triggerStatAnimation('records');
+      triggerStatAnimation('size');
+      triggerStatAnimation('version');
+    } else {
+      if (ttEl && !statCardAnimators.has(ttEl)) ttEl.textContent = API.number(d.totalTables);
+      if (trEl && !statCardAnimators.has(trEl)) trEl.textContent = API.number(d.totalRows);
+      if (dsEl && !statCardAnimators.has(dsEl)) dsEl.textContent = API.bytes(d.totalSizeBytes);
+      if (dvEl && !statCardAnimators.has(dvEl)) dvEl.textContent = d.version;
+    }
+
     document.getElementById('dbEngine').textContent = 'Default engine: ' + (d.defaultEngine || '—');
     document.getElementById('healthBadge').textContent = 'Connected';
     document.getElementById('healthBadge').className = 'status ok';
@@ -436,6 +543,9 @@ document.getElementById('btnToggleDist')?.addEventListener('click', () => {
   isDistributionExpanded = !isDistributionExpanded;
   renderTableDistribution(lastLoadedTables);
 });
+
+// Initialize stat card hover animations
+initStatCardHoverAnimations();
 
 // Initial load and live 1-second polling from database
 loadOverview();
