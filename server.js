@@ -610,64 +610,111 @@ app.post("/api/admin/profile/avatar", requireAdmin, avatarUpload.single("avatar"
   }
 });
 
-// Real-time Recent Submissions & Entries Feed
+// Real-time Recent Entries Feed across ALL database tables
 app.get("/api/admin/recent-entries", requireAdmin, async (req, res, next) => {
   try {
     const limit = Math.min(100, Math.max(1, Number.parseInt(req.query.limit, 10) || 50));
-    const filterType = req.query.type || "all";
+    const tableFilter = String(req.query.table || req.query.type || "all").trim();
     const search = String(req.query.search || "").trim().toLowerCase();
 
+    const allTables = await getAdminTables();
     let allEntries = [];
 
-    if (filterType === "all" || filterType === "submissions") {
-      const [subs] = await db.query(
-        `SELECT id, 'submission' as entry_type, form_type, name, email, phone, company,
-                location, subject, message, plan, product, currency, extra, addons, created_at
-           FROM submissions
-          ORDER BY id DESC LIMIT ?`,
-        [limit]
-      );
-      allEntries.push(...subs);
-    }
+    const targetTables = (tableFilter && tableFilter !== "all")
+      ? allTables.filter(t => t.name === tableFilter)
+      : allTables;
 
-    if (filterType === "all" || filterType === "career_applications") {
-      const [careers] = await db.query(
-        `SELECT id, 'career' as entry_type, position_type as form_type, position as name, email, phone,
-                position as company, experience as location, position as subject,
-                CONCAT('Experience: ', COALESCE(experience, 'N/A'), ' | Source: ', COALESCE(source, 'N/A')) as message,
-                resume_original_name as plan, cover_letter_original_name as product, 'USD' as currency,
-                JSON_OBJECT('linkedin', linkedin, 'github', github, 'resume', resume_path) as extra,
-                NULL as addons, created_at
-           FROM career_applications
-          ORDER BY id DESC LIMIT ?`,
-        [limit]
-      );
-      allEntries.push(...careers);
+    for (const table of targetTables) {
+      try {
+        const [colRows] = await db.execute(
+          "SELECT COLUMN_NAME AS name, DATA_TYPE AS type FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION",
+          [table.name]
+        );
+        if (!colRows.length) continue;
+
+        const cols = colRows.map(c => c.name);
+        const hasCreatedAt = cols.includes('created_at');
+        const hasId = cols.includes('id');
+        const orderCol = hasCreatedAt ? '`created_at` DESC' : (hasId ? '`id` DESC' : '1');
+
+        const [records] = await db.query(
+          `SELECT * FROM ${escapeIdentifier(table.name)} ORDER BY ${orderCol} LIMIT ?`,
+          [limit]
+        );
+
+        for (const row of records) {
+          const id = row.id ?? row[cols[0]] ?? null;
+          const createdAt = row.created_at || row.updated_at || row.timestamp || null;
+
+          let name = row.name || row.full_name || row.title || row.username || row.position || null;
+          if (!name) {
+            const stringCol = cols.find(c => !['id', 'password', 'password_hash', 'password_salt'].includes(c) && typeof row[c] === 'string' && row[c].length > 0);
+            name = stringCol ? row[stringCol] : `#${id}`;
+          }
+
+          const email = row.email || row.user_email || row.admin_email || null;
+          const company = row.company || row.organization || row.account_type || row.experience || null;
+
+          let details = row.message || row.description || row.subject || row.notes || null;
+          if (!details) {
+            const exclude = new Set(['id', 'name', 'full_name', 'email', 'created_at', 'password', 'password_hash', 'password_salt']);
+            const summaryParts = [];
+            for (const col of cols) {
+              if (!exclude.has(col) && row[col] !== null && row[col] !== undefined && row[col] !== '') {
+                summaryParts.push(`${col}: ${String(row[col]).slice(0, 30)}`);
+                if (summaryParts.length >= 2) break;
+              }
+            }
+            details = summaryParts.join(' | ') || (email ? email : `Record in ${table.name}`);
+          }
+
+          allEntries.push({
+            id,
+            table_name: table.name,
+            entry_type: table.name,
+            form_type: row.form_type || row.position_type || table.name,
+            name: String(name || 'Unnamed'),
+            email: email ? String(email) : '—',
+            company: company ? String(company) : '—',
+            subject: row.subject || table.name,
+            message: String(details),
+            created_at: createdAt,
+            raw_data: row
+          });
+        }
+      } catch (tableErr) {
+        // Continue if an individual table has query error
+      }
     }
 
     // Sort newest first
-    allEntries.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    allEntries.sort((a, b) => {
+      const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      if (timeA !== timeB) return timeB - timeA;
+      return Number(b.id || 0) - Number(a.id || 0);
+    });
 
     if (search) {
       allEntries = allEntries.filter(e =>
         (e.name && String(e.name).toLowerCase().includes(search)) ||
         (e.email && String(e.email).toLowerCase().includes(search)) ||
         (e.company && String(e.company).toLowerCase().includes(search)) ||
-        (e.subject && String(e.subject).toLowerCase().includes(search)) ||
         (e.message && String(e.message).toLowerCase().includes(search)) ||
-        (e.form_type && String(e.form_type).toLowerCase().includes(search))
+        (e.table_name && String(e.table_name).toLowerCase().includes(search))
       );
     }
 
     const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
-    const entriesWithNewFlag = allEntries.slice(0, limit).map(e => ({
+    const finalEntries = allEntries.slice(0, limit).map(e => ({
       ...e,
-      isNew: new Date(e.created_at).getTime() > oneDayAgo
+      isNew: e.created_at ? (new Date(e.created_at).getTime() > oneDayAgo) : true
     }));
 
     res.json({
-      total: entriesWithNewFlag.length,
-      entries: entriesWithNewFlag
+      total: finalEntries.length,
+      entries: finalEntries,
+      tables: allTables.map(t => t.name)
     });
   } catch (error) {
     next(error);

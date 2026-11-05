@@ -1,5 +1,6 @@
 let currentEntries = [];
-let currentFilter = 'all';
+let currentRecentTableFilter = 'all';
+let lastFilterTables = [];
 
 let isOverviewLoading = false;
 
@@ -62,9 +63,9 @@ async function loadRecentEntries() {
   if (!container) return;
 
   try {
-    const searchVal = document.getElementById('entrySearch') ? document.getElementById('entrySearch').value : '';
+    const searchVal = document.getElementById('entrySearch') ? document.getElementById('entrySearch').value.trim() : '';
     const q = new URLSearchParams({
-      type: currentFilter,
+      table: currentRecentTableFilter,
       search: searchVal,
       limit: 50
     });
@@ -76,29 +77,40 @@ async function loadRecentEntries() {
       countBadge.textContent = `${currentEntries.length} entries`;
     }
 
+    // Dynamically update table select dropdown from all tables in the database
+    if (data.tables && JSON.stringify(data.tables) !== JSON.stringify(lastFilterTables)) {
+      lastFilterTables = data.tables;
+      renderTableSelectDropdown(data.tables);
+    }
+
+    const browseBtn = document.getElementById('browseDataTableBtn');
+    if (browseBtn) {
+      browseBtn.href = currentRecentTableFilter !== 'all'
+        ? `/tables-records.html?table=${encodeURIComponent(currentRecentTableFilter)}`
+        : '/tables-records.html';
+    }
+
     if (!currentEntries.length) {
-      container.innerHTML = '<tr><td colspan="8" class="muted" style="text-align:center; padding:20px;">No entries found. Submit a form at <a href="http://localhost:5000" target="_blank" style="color:#245ff4; font-weight:600;">the Public Forms page</a> to test real-time synchronization!</td></tr>';
+      const targetMsg = currentRecentTableFilter !== 'all' ? `in table "<b>${API.escape(currentRecentTableFilter)}</b>"` : 'across database tables';
+      container.innerHTML = `<tr><td colspan="8" class="muted" style="text-align:center; padding:25px;">No recent entries found ${targetMsg}.</td></tr>`;
       return;
     }
 
     container.innerHTML = currentEntries.map((e, idx) => {
-      const isSub = e.entry_type === 'submission';
-      const typeBadge = isSub
-        ? `<span class="pill" style="background:#eef4ff; color:#2563eb;">Form: ${API.escape(e.form_type || 'general')}</span>`
-        : `<span class="pill" style="background:#fdf4ff; color:#c026d3;">Career: ${API.escape(e.form_type || 'App')}</span>`;
+      const tableBadge = `<span class="pill" style="background:#eef4ff; color:#2563eb; font-weight:700;">${API.escape(e.table_name || 'table')}</span>`;
 
       const statusBadge = e.isNew
         ? `<span class="new-badge"><span class="new-dot"></span> NEW</span>`
         : `<span class="muted" style="font-size:11px;">archived</span>`;
 
-      const summaryText = e.subject || e.message || e.plan || '—';
+      const summaryText = e.message || e.subject || '—';
 
       return `
         <tr>
           <td>${statusBadge}</td>
-          <td>${typeBadge}</td>
+          <td>${tableBadge}</td>
           <td><b>${API.escape(e.name || '—')}</b></td>
-          <td>${API.escape(e.email)}</td>
+          <td>${API.escape(e.email || '—')}</td>
           <td>${API.escape(e.company || '—')}</td>
           <td style="max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${API.escape(summaryText)}">
             ${API.escape(summaryText)}
@@ -115,6 +127,23 @@ async function loadRecentEntries() {
   }
 }
 
+function renderTableSelectDropdown(tables) {
+  const select = document.getElementById('recentTableSelect');
+  if (!select) return;
+
+  const currentVal = currentRecentTableFilter;
+  const tableList = ['all', ...(tables || [])];
+
+  select.innerHTML = tableList.map(t => {
+    const isAll = t === 'all';
+    const label = isAll ? '📂 All Tables' : `📄 ${API.escape(t)}`;
+    const selected = t === currentVal ? 'selected' : '';
+    return `<option value="${API.escape(t)}" ${selected}>${label}</option>`;
+  }).join('');
+
+  select.value = currentVal;
+}
+
 // Show Detail Modal for any Entry
 window.showEntryDetail = function(index) {
   const item = currentEntries[index];
@@ -124,45 +153,22 @@ window.showEntryDetail = function(index) {
   const title = document.getElementById('entryModalTitle');
   const body = document.getElementById('entryModalBody');
 
-  const typeLabel = item.entry_type === 'career' ? 'Career Application' : 'Form Submission';
-  title.textContent = `${typeLabel} #${item.id} — ${item.name || item.email}`;
+  const row = item.raw_data || item;
+  title.textContent = `Record #${item.id || ''} — Table: ${item.table_name || item.entry_type}`;
 
-  const fields = [
-    { label: "Record ID", val: `#${item.id}` },
-    { label: "Entry Type", val: typeLabel },
-    { label: "Category / Form Type", val: item.form_type },
-    { label: "Full Name", val: item.name },
-    { label: "Email Address", val: item.email },
-    { label: "Phone", val: item.phone },
-    { label: "Company / Role", val: item.company },
-    { label: "Location / Experience", val: item.location },
-    { label: "Subject / Position", val: item.subject },
-    { label: "Message / Notes", val: item.message },
-    { label: "Plan / Resume Name", val: item.plan },
-    { label: "Product / Cover Letter", val: item.product },
-    { label: "Currency", val: item.currency },
-    { label: "Extra Data (JSON)", val: item.extra },
-    { label: "Addons (JSON)", val: item.addons },
-    { label: "Submitted Timestamp", val: item.created_at ? new Date(item.created_at).toLocaleString() : null }
-  ];
+  const fields = Object.keys(row).map(key => {
+    let val = row[key];
+    if (val === null || val === undefined) val = '—';
+    else if (typeof val === 'object') val = JSON.stringify(val, null, 2);
+    else val = String(val);
+
+    return { label: key, val };
+  });
 
   body.innerHTML = fields.map(f => {
-    let displayVal = '<span class="muted">None</span>';
-    if (f.val !== null && f.val !== undefined && f.val !== '') {
-      if (typeof f.val === 'object') {
-        displayVal = `<pre>${API.escape(JSON.stringify(f.val, null, 2))}</pre>`;
-      } else {
-        try {
-          if (typeof f.val === 'string' && (f.val.startsWith('{') || f.val.startsWith('['))) {
-            const parsed = JSON.parse(f.val);
-            displayVal = `<pre>${API.escape(JSON.stringify(parsed, null, 2))}</pre>`;
-          } else {
-            displayVal = API.escape(String(f.val));
-          }
-        } catch {
-          displayVal = API.escape(String(f.val));
-        }
-      }
+    let displayVal = API.escape(f.val);
+    if (f.val.includes('\n') || f.val.startsWith('{') || f.val.startsWith('[')) {
+      displayVal = `<pre>${API.escape(f.val)}</pre>`;
     }
     return `
       <div class="field-row">
@@ -186,14 +192,16 @@ document.getElementById('entryDetailModal')?.addEventListener('click', e => {
   }
 });
 
-// Filter pills
-document.querySelectorAll('.filter-pill').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentFilter = btn.dataset.filter;
-    loadRecentEntries();
-  });
+// Table select dropdown
+document.getElementById('recentTableSelect')?.addEventListener('change', (e) => {
+  currentRecentTableFilter = e.target.value;
+  const browseBtn = document.getElementById('browseDataTableBtn');
+  if (browseBtn) {
+    browseBtn.href = currentRecentTableFilter !== 'all'
+      ? `/tables-records.html?table=${encodeURIComponent(currentRecentTableFilter)}`
+      : '/tables-records.html';
+  }
+  loadRecentEntries();
 });
 
 // Search input

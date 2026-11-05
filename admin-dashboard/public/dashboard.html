@@ -267,22 +267,20 @@
 
       <!-- Recent Submissions & Applications (Showing All New Entries) -->
       <section class="panel">
-        <div class="panel-head" style="flex-wrap: wrap; gap: 14px;">
+        <div class="panel-head" style="display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;">
           <div>
-            <h2 style="display:flex; align-items:center; gap: 10px;">
+            <h2 style="display:flex; align-items:center; gap: 10px; margin: 0 0 4px 0;">
               Recent Submissions & Entries
               <span id="entriesCountBadge" class="pill" style="font-size:11px; padding:3px 8px;">Live</span>
             </h2>
-            <p class="muted">All new submissions and career applications received in real-time</p>
+            <p class="muted" style="margin: 0;">Live entries received across all database tables in real-time</p>
           </div>
-          <div class="top-actions" style="margin: 0;">
-            <div class="filter-pills">
-              <button class="filter-pill active" data-filter="all">All Entries</button>
-              <button class="filter-pill" data-filter="submissions">General Form</button>
-              <button class="filter-pill" data-filter="career_applications">Careers</button>
-            </div>
-            <input id="entrySearch" class="search" style="min-width: 180px; padding: 7px 12px; font-size: 13px;" placeholder="Search entries…">
-            <a class="btn" href="/tables-records.html">Browse in Data Table →</a>
+          <div class="top-actions" style="margin: 0; display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;">
+            <select id="recentTableSelect" class="search" style="min-width: 150px; max-width: 180px; padding: 8px 12px; font-size: 13px; font-weight: 600; color: #1e293b; background-color: #fff; border: 1px solid #dfe5ee; border-radius: 10px; cursor: pointer;">
+              <option value="all">📂 All Tables</option>
+            </select>
+            <input id="entrySearch" class="search" style="min-width: 150px; max-width: 200px; padding: 8px 12px; font-size: 13px;" placeholder="Search entries…">
+            <a id="browseDataTableBtn" class="btn" href="/tables-records.html" style="white-space: nowrap; padding: 8px 14px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px;">Browse in Data Table →</a>
           </div>
         </div>
         <div class="table-wrap">
@@ -290,12 +288,12 @@
             <thead>
               <tr>
                 <th>Status</th>
-                <th>Type</th>
-                <th>Name / Applicant</th>
+                <th>Table</th>
+                <th>Name / Record</th>
                 <th>Email</th>
-                <th>Company / Position</th>
-                <th>Details / Message</th>
-                <th>Submitted</th>
+                <th>Company / Details</th>
+                <th>Summary / Message</th>
+                <th>Created / Submitted</th>
                 <th>Action</th>
               </tr>
             </thead>
