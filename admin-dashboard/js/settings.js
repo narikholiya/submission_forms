@@ -71,6 +71,9 @@ document.getElementById('formRename')?.addEventListener('submit', async e => {
     showAlert('renameAlert', 'Profile name updated successfully!', true);
     adminData.name = newName;
     renderProfile(adminData);
+    if (typeof renderSidebarProfile === 'function') {
+      renderSidebarProfile(adminData);
+    }
   } catch (err) {
     showAlert('renameAlert', err.message || 'Failed to update name', false);
   } finally {
@@ -136,6 +139,9 @@ document.getElementById('formAvatar')?.addEventListener('submit', async e => {
     showAlert('avatarAlert', 'Avatar uploaded and applied successfully!', true);
     adminData.avatar_url = data.avatar_url;
     renderProfile(adminData);
+    if (typeof renderSidebarProfile === 'function') {
+      renderSidebarProfile(adminData);
+    }
     document.getElementById('formAvatar').reset();
   } catch (err) {
     showAlert('avatarAlert', err.message || 'Avatar upload failed.', false);
@@ -154,22 +160,6 @@ document.getElementById('settingsLogoutBtn')?.addEventListener('click', async ()
   }
 });
 
-// Live Sync Timer (5 seconds)
-async function triggerSync() {
-  const syncDisplay = document.getElementById('syncTimestampDisplay');
-  try {
-    await API.request('/overview');
-    const timeStr = new Date().toLocaleTimeString();
-    if (syncDisplay) syncDisplay.textContent = `Live Sync: ${timeStr}`;
-  } catch (err) {
-    if (syncDisplay) syncDisplay.textContent = `Sync Error (${new Date().toLocaleTimeString()})`;
-  }
-}
-
-document.getElementById('liveSyncBtn')?.addEventListener('click', triggerSync);
-
-// Initialize
+// Initialize Settings
 loadAdminSettings();
-triggerSync();
-setInterval(triggerSync, 5000);
 

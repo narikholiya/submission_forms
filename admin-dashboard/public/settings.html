@@ -158,11 +158,7 @@
         <a href="/tables-records.html">▦ &nbsp; Tables & Records</a>
         <hr style="border:0; border-top:1px solid #e7ebf2; margin: 10px 0;">
         <a href="http://localhost:5000" target="_blank" style="color: #245df5;">📋 &nbsp; Public Forms ↗</a>
-        <a href="/settings.html" class="active" style="background:#eef4ff; color:#205cf5; font-weight:700;">⚙️ &nbsp; Settings</a>
       </nav>
-      <div class="side-bottom">
-        <span class="live-dot"></span> Connected workspace
-      </div>
     </aside>
 
     <main class="main">
@@ -173,11 +169,10 @@
           <p class="muted">Manage your admin profile, change password, upload avatar, and control sessions.</p>
         </div>
         <div class="top-actions">
-          <button class="live-sync-pill" id="liveSyncBtn" title="Click to trigger instant sync">
+          <span class="live-sync-pill" title="Live Database Synchronization (Real-time)">
             <span class="sync-pulse-dot"></span>
-            <span id="syncTimestampDisplay">Live Sync (Connecting…)</span>
-          </button>
-          <a class="btn" href="http://localhost:5000" target="_blank">📋 Forms Page</a>
+            <span>Live Sync <b id="topLiveTime" style="margin-left: 4px;"></b></span>
+          </span>
         </div>
       </header>
 
@@ -286,6 +281,7 @@
   </div>
 
   <script src="/js/api.js"></script>
+  <script src="/js/shell.js"></script>
   <script src="/js/settings.js"></script>
 </body>
 </html>

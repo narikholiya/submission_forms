@@ -151,25 +151,35 @@ body {
 .profile-actions {
   display: flex;
   gap: 6px;
+  width: 100%;
 }
-.profile-actions button {
-  flex: 1;
-  padding: 6px 8px;
-  font-size: 11px;
-  border-radius: 8px;
+.btn-settings-action {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 12px;
+  border-radius: 9px;
   border: 1px solid #cbd5e1;
-  background: #fff;
+  background: #ffffff;
   color: #334155;
+  text-decoration: none;
   cursor: pointer;
-  font-weight: 600;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  transition: all 0.2s;
+  gap: 6px;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
 }
-.profile-actions button:hover {
-  background: #e2e8f0;
+.btn-settings-action:hover {
+  background: #eef4ff;
+  border-color: #9db5f8;
+  color: #245ff4;
+}
+.btn-settings-action.active {
+  background: #245ff4;
+  border-color: #245ff4;
+  color: #ffffff;
 }
 .sync-badge-box {
   display: flex;
