@@ -1,4 +1,19 @@
 
+/**
+ * ==============================================================================
+ * Core Backend Server & Administrative API (server.js)
+ * ==============================================================================
+ * Powers both the Public Form Submission Portal and the Administrative Database
+ * Console. Key capabilities:
+ * 1. Express REST API with security hardening (Helmet, Rate Limiting, Scrypt hashing).
+ * 2. MySQL 8 Connection Pool with automatic reconnect keep-alives.
+ * 3. Schema inspector, dynamic visual table CRUD engine, and record pagination.
+ * 4. Dual Multer upload engines: protected candidate resumes & custom admin avatars.
+ * 5. SMTP email delivery notifications via MailHog.
+ * 6. Centralized sanitized error handling & graceful process lifecycle termination.
+ * ==============================================================================
+ */
+
 const express = require("express");
 const mysql = require("mysql2/promise");
 const nodemailer = require("nodemailer");
@@ -13,20 +28,34 @@ require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Administrative Session TTL (8 hours) & in-memory session token store
 const ADMIN_SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 const adminSessions = new Map();
 
-app.disable("x-powered-by");
-app.use(helmet({ contentSecurityPolicy: false }));
-app.use(express.json({ limit: "100kb" }));
-app.use(express.urlencoded({ extended: true, limit: "100kb" }));
+// ------------------------------------------------------------------------------
+// HTTP Security & Request Parsing Middleware
+// ------------------------------------------------------------------------------
+app.disable("x-powered-by"); // Suppress Express fingerprinting
+app.use(helmet({ contentSecurityPolicy: false })); // Apply essential HTTP security headers
+app.use(express.json({ limit: "100kb" })); // Parse JSON payloads with body size limit
+app.use(express.urlencoded({ extended: true, limit: "100kb" })); // Parse URL-encoded form data
 
+// ------------------------------------------------------------------------------
+// Static Asset Delivery
+// ------------------------------------------------------------------------------
+// Public form portal assets
 app.use(express.static(path.join(__dirname, "public")));
+// Admin dashboard static files
 app.use(express.static(path.join(__dirname, "admin-dashboard", "public")));
 app.use("/css", express.static(path.join(__dirname, "admin-dashboard", "css")));
 app.use("/js", express.static(path.join(__dirname, "admin-dashboard", "js")));
+// Public avatar images (candidate resumes remain protected and are NOT exposed here)
 app.use("/uploads/avatars", express.static(path.join(__dirname, "uploads", "avatars")));
 
+// ------------------------------------------------------------------------------
+// User-Friendly Page Redirect Shortcuts
+// ------------------------------------------------------------------------------
 app.get("/login", (req, res) => res.redirect("/login.html"));
 app.get("/dashboard", (req, res) => res.redirect("/dashboard.html"));
 app.get("/admin", (req, res) => res.redirect("/login.html"));
@@ -34,6 +63,9 @@ app.get("/forms", (req, res) => res.redirect("/index.html"));
 app.get("/settings", (req, res) => res.redirect("/settings.html"));
 app.get("/database-crud", (req, res) => res.redirect("/database-crud.html"));
 
+// ------------------------------------------------------------------------------
+// Rate Limiting & Abuse Prevention
+// ------------------------------------------------------------------------------
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30,
@@ -64,6 +96,15 @@ setInterval(() => {
   }
 }, 15 * 60 * 1000).unref();
 
+// ==============================================================================
+// Authentication & Cryptographic Security Helpers
+// ==============================================================================
+
+/**
+ * Parses HTTP request Cookie header into a key-value dictionary.
+ * @param {string} [header=""] - Raw header string
+ * @returns {Record<string, string>}
+ */
 function parseCookies(header = "") {
   return Object.fromEntries(
     header.split(";").map(item => item.trim()).filter(Boolean).map(item => {
@@ -75,17 +116,36 @@ function parseCookies(header = "") {
   );
 }
 
+/**
+ * Constant-time string equality check to mitigate timing side-channel attacks.
+ * @param {string} first
+ * @param {string} second
+ * @returns {boolean}
+ */
 function secureEqual(first, second) {
   const firstBuffer = Buffer.from(String(first || ""));
   const secondBuffer = Buffer.from(String(second || ""));
   return firstBuffer.length === secondBuffer.length && crypto.timingSafeEqual(firstBuffer, secondBuffer);
 }
 
+/**
+ * Derives a 64-byte scrypt password hash using a 16-byte random salt.
+ * @param {string} password
+ * @param {string} [salt]
+ * @returns {{ hash: string, salt: string }}
+ */
 function hashPassword(password, salt = crypto.randomBytes(16).toString("hex")) {
   const hash = crypto.scryptSync(password, salt, 64).toString("hex");
   return { hash, salt };
 }
 
+/**
+ * Verifies a plaintext password against a stored scrypt hash in constant time.
+ * @param {string} password
+ * @param {string} storedHash
+ * @param {string} salt
+ * @returns {boolean}
+ */
 function verifyPassword(password, storedHash, salt) {
   const hash = crypto.scryptSync(password, salt, 64).toString("hex");
   const hashBuffer = Buffer.from(hash);
@@ -93,6 +153,11 @@ function verifyPassword(password, storedHash, salt) {
   return hashBuffer.length === storedBuffer.length && crypto.timingSafeEqual(hashBuffer, storedBuffer);
 }
 
+/**
+ * Validates the administrative secret key provided during new admin account creation.
+ * @param {string} providedKey
+ * @returns {boolean}
+ */
 function verifySecretKey(providedKey) {
   const configuredKey = process.env.ADMIN_SECRET_KEY || "admin-secret-2026";
   const providedBuffer = Buffer.from(String(providedKey || ""));
@@ -101,6 +166,11 @@ function verifySecretKey(providedKey) {
   return crypto.timingSafeEqual(providedBuffer, configuredBuffer);
 }
 
+/**
+ * Sets an HTTP-only, SameSite=Strict cookie for the authenticated admin session.
+ * @param {import('express').Response} res
+ * @param {string} token
+ */
 function setAdminSessionCookie(res, token) {
   const secure = process.env.ADMIN_COOKIE_SECURE === "true" ? "; Secure" : "";
   res.setHeader(
@@ -109,6 +179,10 @@ function setAdminSessionCookie(res, token) {
   );
 }
 
+/**
+ * Express middleware to enforce administrator authentication on protected endpoints.
+ * Validates session token existence and expiration.
+ */
 function requireAdmin(req, res, next) {
   const token = parseCookies(req.headers.cookie).admin_session;
   const session = token && adminSessions.get(token);
@@ -120,10 +194,19 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+/**
+ * Safely escapes MySQL table and column identifiers by wrapping in backticks.
+ * @param {string} identifier
+ * @returns {string}
+ */
 function escapeIdentifier(identifier) {
   return `\`${String(identifier).replace(/`/g, "``")}\``;
 }
 
+/**
+ * Retrieves all base tables in the current database schema, including live row counts.
+ * @returns {Promise<Array<{ name: string, engine: string, rows: number, dataBytes: number, indexBytes: number }>>}
+ */
 async function getAdminTables() {
   const [tables] = await db.execute(
     `SELECT TABLE_NAME AS name, ENGINE AS engine, TABLE_ROWS AS \`rows\`,
@@ -149,7 +232,14 @@ async function findAdminTable(name) {
   return tables.find(table => table.name === name);
 }
 
-// MySQL connection pool
+// ==============================================================================
+// Database & Mail Transport Configuration
+// ==============================================================================
+
+/**
+ * MySQL 8 Connection Pool
+ * Configured with TCP keep-alives and zero queue limit for resilient database access.
+ */
 const db = mysql.createPool({
   host: process.env.DB_HOST || "mysql",
   user: process.env.DB_USER,
@@ -162,14 +252,21 @@ const db = mysql.createPool({
   keepAliveInitialDelay: 10000
 });
 
-// MailHog SMTP
+/**
+ * Nodemailer SMTP Transporter
+ * Dispatches notification emails to MailHog (port 1025) for local inspection.
+ */
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || "mailhog",
   port: Number(process.env.SMTP_PORT || 1025),
   secure: false
 });
 
-// Upload directory
+// ==============================================================================
+// Multer File Storage Handlers
+// ==============================================================================
+
+// 1. Candidate Resume & Cover Letter Storage (Protected from direct public access)
 const uploadDir = path.join(__dirname, "uploads", "resumes");
 fs.mkdirSync(uploadDir, { recursive: true });
 
@@ -183,7 +280,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit for resumes
   fileFilter: (req, file, cb) => {
     const allowed = [".pdf", ".doc", ".docx"];
     const ext = path.extname(file.originalname).toLowerCase();
@@ -196,7 +293,7 @@ const upload = multer({
   }
 });
 
-// Admin Avatar Upload
+// 2. Administrator Avatar Upload Storage (20MB limit, strict MIME validation)
 const avatarDir = path.join(__dirname, "uploads", "avatars");
 fs.mkdirSync(avatarDir, { recursive: true });
 
@@ -210,7 +307,7 @@ const avatarStorage = multer.diskStorage({
 
 const avatarUpload = multer({
   storage: avatarStorage,
-  limits: { fileSize: 20 * 1024 * 1024 },
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit for admin avatars
   fileFilter: (req, file, cb) => {
     const allowedExts = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".jfif", ".avif"];
     const allowedMimes = ["image/png", "image/jpeg", "image/webp", "image/gif", "image/avif"];
@@ -222,7 +319,14 @@ const avatarUpload = multer({
   }
 });
 
-// Database initialization
+// ==============================================================================
+// Database Schema Initialization & Seed Migrations
+// ==============================================================================
+
+/**
+ * Initializes MySQL tables if they do not exist (`submissions`, `career_applications`, `admin_users`),
+ * performs non-destructive schema migrations (e.g., adding `avatar_url`), and seeds initial demonstration records.
+ */
 async function initializeDatabase() {
   await db.query(`
     CREATE TABLE IF NOT EXISTS submissions (
@@ -338,6 +442,11 @@ async function initializeDatabase() {
   }
 }
 
+// ==============================================================================
+// Input Validation Schemas (Joi)
+// ==============================================================================
+
+// 1. General Inquiries & Demo Requests Validation Schema
 const submissionSchema = Joi.object({
   form_type: Joi.string().max(100).default("general"),
   source: Joi.string().max(100).allow("", null),
@@ -381,7 +490,9 @@ async function sendNotification(subject, html) {
   });
 }
 
-// Health check
+// ==============================================================================
+// System Health Probe Endpoint
+// ==============================================================================
 app.get("/api/health", async (req, res) => {
   try {
     await db.query("SELECT 1");
@@ -391,7 +502,14 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
-// Admin Registration with Secret Key
+// ==============================================================================
+// Admin Authentication & Session Management Endpoints
+// ==============================================================================
+
+/**
+ * Registers a new administrator account.
+ * Requires validation against the configured ADMIN_SECRET_KEY.
+ */
 app.post("/api/admin/register", async (req, res) => {
   try {
     const { name, email, password, secret_key } = req.body || {};
@@ -450,7 +568,11 @@ app.post("/api/admin/register", async (req, res) => {
   }
 });
 
-// Admin Login
+/**
+ * Admin Sign-In Endpoint
+ * Authenticates against database records (or fallback environment credentials),
+ * issues an in-memory session token, and sets an HttpOnly cookie.
+ */
 app.post("/api/admin/login", async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) {
@@ -501,6 +623,10 @@ app.post("/api/admin/login", async (req, res) => {
   }
 });
 
+/**
+ * Admin Sign-Out Endpoint
+ * Revokes active session from server memory and expires the cookie.
+ */
 app.post("/api/admin/logout", requireAdmin, (req, res) => {
   const token = parseCookies(req.headers.cookie).admin_session;
   if (token) adminSessions.delete(token);
@@ -508,11 +634,20 @@ app.post("/api/admin/logout", requireAdmin, (req, res) => {
   res.status(204).end();
 });
 
+/**
+ * Returns current authenticated admin's session identity.
+ */
 app.get("/api/admin/me", requireAdmin, (req, res) => {
   res.json({ email: req.admin.email, name: req.admin.name || "Administrator" });
 });
 
-// Profile Management Endpoints
+// ==============================================================================
+// Admin Profile Management & Avatar Upload Endpoints
+// ==============================================================================
+
+/**
+ * Retrieves full profile details for the authenticated administrator.
+ */
 app.get("/api/admin/profile", requireAdmin, async (req, res, next) => {
   try {
     const cleanEmail = String(req.admin.email || "").trim().toLowerCase();
@@ -745,6 +880,14 @@ app.get("/api/admin/recent-entries", requireAdmin, async (req, res, next) => {
   }
 });
 
+// ==============================================================================
+// Admin Database Inspection & Overview Metadata API
+// ==============================================================================
+
+/**
+ * Returns aggregated database metrics for the main Overview dashboard:
+ * Total tables, exact live row counts, allocated data/index storage, and MySQL version.
+ */
 app.get("/api/admin/overview", requireAdmin, async (req, res, next) => {
   try {
     const tables = await getAdminTables();
@@ -761,6 +904,9 @@ app.get("/api/admin/overview", requireAdmin, async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+/**
+ * Returns database storage distribution breakdown and table catalog.
+ */
 app.get("/api/admin/database", requireAdmin, async (req, res, next) => {
   try {
     const tables = await getAdminTables();
@@ -775,10 +921,16 @@ app.get("/api/admin/database", requireAdmin, async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+/**
+ * Lists all database tables with current live row counts.
+ */
 app.get("/api/admin/tables", requireAdmin, async (req, res, next) => {
   try { res.json({ tables: await getAdminTables() }); } catch (error) { next(error); }
 });
 
+/**
+ * Returns column definitions, keys, and indexes for a single target table.
+ */
 app.get("/api/admin/tables/:table/schema", requireAdmin, async (req, res, next) => {
   try {
     const table = await findAdminTable(req.params.table);
@@ -802,6 +954,9 @@ app.get("/api/admin/tables/:table/schema", requireAdmin, async (req, res, next) 
   } catch (error) { next(error); }
 });
 
+/**
+ * Retrieves paginated rows for a specific table with optional multi-column search filtering.
+ */
 app.get("/api/admin/tables/:table/records", requireAdmin, async (req, res, next) => {
   try {
     const table = await findAdminTable(req.params.table);
@@ -830,7 +985,15 @@ app.get("/api/admin/tables/:table/records", requireAdmin, async (req, res, next)
   } catch (error) { next(error); }
 });
 
-// Helper for validating SQL column data types safely
+// ==============================================================================
+// Visual Schema & Table CRUD Management Endpoints
+// ==============================================================================
+
+/**
+ * Validates and normalizes SQL data type definitions against an allowlist to prevent injection.
+ * @param {string} type
+ * @returns {string|null}
+ */
 function sanitizeDataType(type) {
   if (!type || typeof type !== 'string') return null;
   const t = type.trim();
@@ -1081,7 +1244,14 @@ app.delete("/api/admin/tables/:table/records/:id", requireAdmin, async (req, res
   }
 });
 
-// General form submission
+// ==============================================================================
+// Public Ingestion Endpoints (Form Submissions & Careers)
+// ==============================================================================
+
+/**
+ * Ingests general inquiries, demo requests, and contact submissions.
+ * Validates against submissionSchema, writes to MySQL, and triggers SMTP notification.
+ */
 app.post("/api/submissions", async (req, res) => {
   try {
     const { error, value } = submissionSchema.validate(req.body);
@@ -1164,7 +1334,11 @@ function escapeHTML(value) {
   })[char]);
 }
 
-// Career application
+/**
+ * Ingests job applications with multipart file uploads (Resume & Cover Letter).
+ * Validates against careerSchema, persists candidate files in uploads/resumes/,
+ * writes metadata to MySQL, and triggers SMTP notification email.
+ */
 app.post(
   "/api/careers",
   upload.fields([

@@ -43,6 +43,7 @@ form-management/
 │
 ├── .dockerignore                        # Docker build exclusion rules
 ├── .env                                 # Environment configuration (secrets, DB, SMTP, admin credentials)
+├── architecture.md                      # System architecture, topology diagrams & technical design
 ├── docker-compose.yml                   # Multi-service stack (backend, admin-dashboard, mysql, mailhog)
 ├── Dockerfile                           # Node.js 22 Alpine production container
 ├── File_structure                       # Project directory layout & component map

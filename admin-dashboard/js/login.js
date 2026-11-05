@@ -1,4 +1,13 @@
-// Tab switching
+/**
+ * ==============================================================================
+ * Admin Authentication Controller (login.js)
+ * ==============================================================================
+ * Manages administrative sign-in, new admin account registration,
+ * password reveal/conceal toggle buttons, and login-screen theme switching.
+ * ==============================================================================
+ */
+
+// DOM Elements
 const tabSignIn = document.getElementById('tabSignIn');
 const tabRegister = document.getElementById('tabRegister');
 const loginForm = document.getElementById('loginForm');
@@ -6,6 +15,9 @@ const registerForm = document.getElementById('registerForm');
 const pageTitle = document.getElementById('pageTitle');
 const pageSub = document.getElementById('pageSub');
 
+// ==============================================================================
+// 1. Tab Switching (Sign In vs Register Account)
+// ==============================================================================
 tabSignIn.addEventListener('click', () => {
   tabSignIn.classList.add('active');
   tabRegister.classList.remove('active');
@@ -26,6 +38,9 @@ tabRegister.addEventListener('click', () => {
   clearStatuses();
 });
 
+/**
+ * Clears any previous error or success feedback messages from both forms.
+ */
 function clearStatuses() {
   const l = document.getElementById('loginStatus');
   const r = document.getElementById('regStatus');
@@ -33,7 +48,9 @@ function clearStatuses() {
   if (r) { r.className = 'status-msg'; r.textContent = ''; }
 }
 
-// Password show / hide toggle icon handler
+// ==============================================================================
+// 2. Password Visibility Toggle (Show / Hide Password)
+// ==============================================================================
 document.querySelectorAll('.pwd-toggle').forEach(btn => {
   btn.addEventListener('click', () => {
     const targetId = btn.getAttribute('data-target');
@@ -55,13 +72,15 @@ document.querySelectorAll('.pwd-toggle').forEach(btn => {
   });
 });
 
-// Handle Login Form Submission
+// ==============================================================================
+// 3. Admin Login Submission
+// ==============================================================================
 loginForm.addEventListener('submit', async event => {
   event.preventDefault();
   const form = event.currentTarget;
   const button = document.getElementById('loginBtn');
   const status = document.getElementById('loginStatus');
-  
+
   status.className = 'status-msg';
   status.textContent = '';
   button.disabled = true;
@@ -69,10 +88,12 @@ loginForm.addEventListener('submit', async event => {
 
   try {
     const body = Object.fromEntries(new FormData(form));
+    // Send credentials to backend login endpoint
     await API.request('/login', {
       method: 'POST',
       body: JSON.stringify(body)
     });
+    // Redirect to main overview dashboard on successful authentication
     location.href = '/dashboard.html';
   } catch (e) {
     status.className = 'status-msg error';
@@ -83,7 +104,9 @@ loginForm.addEventListener('submit', async event => {
   }
 });
 
-// Handle Create Account Form Submission
+// ==============================================================================
+// 4. Admin Account Registration Submission (Requires ADMIN_SECRET_KEY)
+// ==============================================================================
 registerForm.addEventListener('submit', async event => {
   event.preventDefault();
   const form = event.currentTarget;
@@ -97,7 +120,7 @@ registerForm.addEventListener('submit', async event => {
 
   try {
     const body = Object.fromEntries(new FormData(form));
-    const res = await API.request('/register', {
+    await API.request('/register', {
       method: 'POST',
       body: JSON.stringify(body)
     });
@@ -116,7 +139,9 @@ registerForm.addEventListener('submit', async event => {
   }
 });
 
-// Theme Toggle for Login Page
+// ==============================================================================
+// 5. Standalone Theme Toggle for Login Screen
+// ==============================================================================
 const themeBtn = document.getElementById('loginThemeToggle');
 const themeIcon = document.getElementById('themeToggleIcon');
 const themeText = document.getElementById('themeToggleText');
