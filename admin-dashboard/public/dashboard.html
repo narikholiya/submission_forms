@@ -172,10 +172,46 @@
             <span id="healthBadge" class="status">Checking</span>
           </div>
           <div class="health-line">
-            <span class="health-orb"></span>
-            <div>
-              <b id="healthText">Checking database connection</b>
-              <small id="healthSub" class="muted">Waiting for API response</small>
+            <div class="health-chart-wrapper">
+              <div class="health-donut-container" id="healthDonutContainer">
+                <svg class="health-donut-svg" id="healthDonutSvg" viewBox="0 0 100 100" width="86" height="86">
+                  <circle class="donut-bg" cx="50" cy="50" r="38" fill="none" stroke="#f1f5f9" stroke-width="12"></circle>
+                  <g id="donutSlicesGroup" transform="rotate(-90 50 50)"></g>
+                </svg>
+                <div class="donut-center-info" id="donutCenterInfo">
+                  <span class="sync-pulse-dot" style="width: 10px; height: 10px;"></span>
+                </div>
+              </div>
+              <div class="donut-tooltip" id="donutTooltip">
+                <div class="tooltip-title" id="tooltipTitle">Metric</div>
+                <div class="tooltip-val" id="tooltipVal">0</div>
+                <div class="tooltip-desc" id="tooltipDesc">Details</div>
+              </div>
+            </div>
+
+            <div class="health-info-col">
+              <div style="margin-bottom: 10px;">
+                <b id="healthText" style="font-size: 15px; color: #0f172a;">MySQL connection is healthy</b>
+                <small id="healthSub" class="muted">Live response from backend</small>
+              </div>
+
+              <div class="health-legend-list">
+                <div class="legend-chip" id="legendTablesChip" data-metric="tables" title="Hover to view tables share">
+                  <span class="legend-color-dot" style="background: #3b82f6;"></span>
+                  <span class="legend-name">Tables:</span>
+                  <strong id="legendTablesVal">0</strong>
+                </div>
+                <div class="legend-chip" id="legendRecordsChip" data-metric="records" title="Hover to view records share">
+                  <span class="legend-color-dot" style="background: #10b981;"></span>
+                  <span class="legend-name">Records:</span>
+                  <strong id="legendRecordsVal">0</strong>
+                </div>
+                <div class="legend-chip" id="legendSizeChip" data-metric="size" title="Hover to view size share">
+                  <span class="legend-color-dot" style="background: #8b5cf6;"></span>
+                  <span class="legend-name">Size:</span>
+                  <strong id="legendSizeVal">0 KB</strong>
+                </div>
+              </div>
             </div>
           </div>
           <div class="panel-foot">

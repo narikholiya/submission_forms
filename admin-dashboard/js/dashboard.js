@@ -26,6 +26,7 @@ async function loadOverview() {
     document.getElementById('healthSub').textContent = 'Live response from backend';
     
     document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString();
+    renderHealthDonut(d);
 
     const rows = d.tables || [];
     document.getElementById('tablesBody').innerHTML = rows.map(t => `
@@ -211,6 +212,178 @@ document.getElementById('entrySearch')?.addEventListener('input', () => {
 
 document.getElementById('refreshBtn')?.addEventListener('click', loadOverview);
 document.getElementById('liveSyncBtn')?.addEventListener('click', loadOverview);
+
+// Interactive Health Donut Chart
+let prevDonutState = { tables: -1, rows: -1, sizeBytes: -1 };
+let currentHoveredMetricId = null;
+
+function renderHealthDonut(d) {
+  const container = document.getElementById('donutSlicesGroup');
+  const tooltip = document.getElementById('donutTooltip');
+  const center = document.getElementById('donutCenterInfo');
+  if (!container) return;
+
+  const tables = Number(d.totalTables) || 0;
+  const rows = Number(d.totalRows) || 0;
+  const sizeBytes = Number(d.totalSizeBytes) || 0;
+  const sizeKb = Math.max(1, Math.round(sizeBytes / 1024));
+
+  // Update Legend Values
+  const legT = document.getElementById('legendTablesVal');
+  const legR = document.getElementById('legendRecordsVal');
+  const legS = document.getElementById('legendSizeVal');
+  if (legT) legT.textContent = API.number(tables);
+  if (legR) legR.textContent = API.number(rows);
+  if (legS) legS.textContent = API.bytes(sizeBytes);
+
+  // If values haven't changed and slices exist, no need to redraw SVG
+  if (
+    prevDonutState.tables === tables &&
+    prevDonutState.rows === rows &&
+    prevDonutState.sizeBytes === sizeBytes &&
+    container.children.length > 0
+  ) {
+    return;
+  }
+
+  prevDonutState = { tables, rows, sizeBytes };
+
+  const metrics = [
+    {
+      id: 'tables',
+      name: 'Total Tables',
+      valueStr: `${API.number(tables)} Tables`,
+      val: tables,
+      centerVal: `${tables}`,
+      centerLabel: 'Tables',
+      color: '#3b82f6',
+      desc: 'Database schemas & tables count'
+    },
+    {
+      id: 'records',
+      name: 'Total Records',
+      valueStr: `${API.number(rows)} Rows`,
+      val: rows,
+      centerVal: `${rows}`,
+      centerLabel: 'Records',
+      color: '#10b981',
+      desc: 'Live row entries across tables'
+    },
+    {
+      id: 'size',
+      name: 'Database Size',
+      valueStr: API.bytes(sizeBytes),
+      val: sizeKb,
+      centerVal: `${sizeKb}KB`,
+      centerLabel: 'Allocated',
+      color: '#8b5cf6',
+      desc: 'Data + index storage allocation'
+    }
+  ];
+
+  // Proportional weight calculation:
+  // Whichever is bigger takes a larger arc, with a minimum 14% arc so small items are clearly visible and hoverable
+  const totalRaw = metrics.reduce((acc, m) => acc + Math.max(0.1, m.val), 0);
+  const minPercent = 14;
+  const remainPercent = 100 - (minPercent * metrics.length); // 58%
+
+  metrics.forEach(m => {
+    const rawRatio = Math.max(0.1, m.val) / totalRaw;
+    m.percent = minPercent + (rawRatio * remainPercent);
+  });
+
+  const radius = 38;
+  const circumference = 2 * Math.PI * radius; // ~238.76104
+
+  let accumulatedPercent = 0;
+  container.innerHTML = '';
+
+  metrics.forEach(m => {
+    const dashLength = (m.percent / 100) * circumference;
+    const strokeOffset = -(accumulatedPercent / 100) * circumference;
+    accumulatedPercent += m.percent;
+
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('class', `donut-slice slice-${m.id}`);
+    circle.setAttribute('cx', '50');
+    circle.setAttribute('cy', '50');
+    circle.setAttribute('r', `${radius}`);
+    circle.setAttribute('fill', 'none');
+    circle.setAttribute('stroke', m.color);
+    circle.setAttribute('stroke-width', '12');
+    circle.setAttribute('stroke-dasharray', `${dashLength.toFixed(2)} ${circumference.toFixed(2)}`);
+    circle.setAttribute('stroke-dashoffset', `${strokeOffset.toFixed(2)}`);
+    circle.setAttribute('data-metric', m.id);
+
+    circle.addEventListener('mouseenter', () => highlightMetric(m.id));
+    circle.addEventListener('mouseleave', resetHighlight);
+
+    container.appendChild(circle);
+  });
+
+  ['tables', 'records', 'size'].forEach(id => {
+    const chip = document.getElementById(`legend${id.charAt(0).toUpperCase() + id.slice(1)}Chip`);
+    if (chip) {
+      chip.onmouseenter = () => highlightMetric(id);
+      chip.onmouseleave = resetHighlight;
+    }
+  });
+
+  function highlightMetric(id) {
+    currentHoveredMetricId = id;
+    const m = metrics.find(x => x.id === id);
+    if (!m) return;
+
+    container.querySelectorAll('.donut-slice').forEach(s => {
+      if (s.getAttribute('data-metric') === id) {
+        s.classList.add('active-slice');
+        s.classList.remove('dimmed');
+      } else {
+        s.classList.add('dimmed');
+        s.classList.remove('active-slice');
+      }
+    });
+
+    document.querySelectorAll('.legend-chip').forEach(c => {
+      c.classList.toggle('active-chip', c.getAttribute('data-metric') === id);
+    });
+
+    if (center) {
+      center.innerHTML = `
+        <span class="donut-center-val" style="color:${m.color}">${m.centerVal}</span>
+        <span class="donut-center-label">${m.centerLabel}</span>
+      `;
+    }
+
+    if (tooltip) {
+      document.getElementById('tooltipTitle').innerHTML = `<span style="color:${m.color}; font-size:14px;">●</span> ${m.name}`;
+      document.getElementById('tooltipVal').textContent = m.valueStr;
+      document.getElementById('tooltipDesc').textContent = m.desc;
+      tooltip.classList.add('visible');
+    }
+  }
+
+  function resetHighlight() {
+    currentHoveredMetricId = null;
+    container.querySelectorAll('.donut-slice').forEach(s => {
+      s.classList.remove('active-slice', 'dimmed');
+    });
+    document.querySelectorAll('.legend-chip').forEach(c => {
+      c.classList.remove('active-chip');
+    });
+    if (center) {
+      center.innerHTML = `<span class="sync-pulse-dot" style="width:10px; height:10px;"></span>`;
+    }
+    if (tooltip) {
+      tooltip.classList.remove('visible');
+    }
+  }
+
+  // Restore active highlight if hovered when update occurred
+  if (currentHoveredMetricId) {
+    highlightMetric(currentHoveredMetricId);
+  }
+}
 
 // Initial load and live 1-second polling from database
 loadOverview();
