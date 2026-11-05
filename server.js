@@ -44,6 +44,26 @@ const limiter = rateLimit({
 // Public form endpoints need abuse protection; dashboard reads refresh regularly.
 app.use(["/api/submissions", "/api/careers"], limiter);
 
+// Strict rate limiter for authentication & password changes to prevent brute-force attacks
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many authentication attempts. Please try again after 15 minutes." }
+});
+app.use(["/api/admin/login", "/api/admin/register", "/api/admin/change-password"], authLimiter);
+
+// Periodically clean up expired admin sessions to prevent memory leaks
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, session] of adminSessions.entries()) {
+    if (!session || session.expiresAt < now) {
+      adminSessions.delete(token);
+    }
+  }
+}, 15 * 60 * 1000).unref();
+
 function parseCookies(header = "") {
   return Object.fromEntries(
     header.split(";").map(item => item.trim()).filter(Boolean).map(item => {
@@ -136,7 +156,10 @@ const db = mysql.createPool({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   waitForConnections: true,
-  connectionLimit: 10
+  connectionLimit: 10,
+  queueLimit: 0,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 10000
 });
 
 // MailHog SMTP
@@ -189,10 +212,11 @@ const avatarUpload = multer({
   storage: avatarStorage,
   limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowed = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".jfif", ".avif"];
+    const allowedExts = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".jfif", ".avif"];
+    const allowedMimes = ["image/png", "image/jpeg", "image/webp", "image/gif", "image/avif"];
     const ext = path.extname(file.originalname).toLowerCase();
-    if (!allowed.includes(ext)) {
-      return cb(new Error("Only PNG, JPG, JPEG, WEBP, and GIF images are allowed."));
+    if (!allowedExts.includes(ext) || !allowedMimes.includes(file.mimetype)) {
+      return cb(new Error("Only standard image files (PNG, JPG, JPEG, WEBP, GIF, AVIF) are allowed."));
     }
     cb(null, true);
   }
