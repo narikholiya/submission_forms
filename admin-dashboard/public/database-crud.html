@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Database CRUD & Schema - Admin Console</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <style>
+    .crud-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 24px;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 12px;
+    }
+    .crud-tab-btn {
+      padding: 10px 18px;
+      border-radius: 10px;
+      border: 1px solid transparent;
+      background: #ffffff;
+      color: #64748b;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+    .crud-tab-btn:hover {
+      background: #f1f5f9;
+      color: #1e293b;
+    }
+    .crud-tab-btn.active {
+      background: #245ff4;
+      color: #ffffff;
+      border-color: #245ff4;
+      box-shadow: 0 4px 12px rgba(36, 95, 244, 0.2);
+    }
+    .crud-section {
+      display: none;
+    }
+    .crud-section.active {
+      display: block;
+    }
+    .col-builder-row {
+      display: grid;
+      grid-template-columns: 160px 150px 90px 90px 100px 150px 45px;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 10px;
+      padding: 8px 12px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+    }
+    @media (max-width: 900px) {
+      .col-builder-row {
+        grid-template-columns: 1fr;
+      }
+    }
+    .sql-preview-box {
+      background: #0f172a;
+      color: #38bdf8;
+      font-family: monospace;
+      font-size: 12px;
+      padding: 14px 18px;
+      border-radius: 12px;
+      margin-top: 14px;
+      white-space: pre-wrap;
+      border: 1px solid #1e293b;
+    }
+    .danger-panel {
+      border: 1px solid #fecaca;
+      background: #fef2f2;
+      border-radius: 16px;
+      padding: 20px;
+      margin-top: 24px;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="/dashboard.html">
+        <span class="brand-mark">DB</span>
+        <span><b>Database Console</b><small>Admin workspace</small></span>
+      </a>
+      <nav>
+        <a href="/dashboard.html">◫ &nbsp; Overview</a>
+        <a href="/database-details.html">▤ &nbsp; Database Details</a>
+        <a href="/tables-records.html">▦ &nbsp; Tables & Records</a>
+        <a class="active" href="/database-crud.html">🛠️ &nbsp; Database CRUD</a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <span class="eyebrow">DATABASE CONSOLE / CRUD & SCHEMA</span>
+          <h1>Database CRUD Operations</h1>
+          <p class="muted">Create new tables, delete tables, add columns, and manage records directly.</p>
+        </div>
+        <div class="top-actions">
+          <span class="live-sync-pill" title="Live Database Synchronization (Real-time)">
+            <span class="sync-pulse-dot"></span>
+            <span>Live Sync <b id="topLiveTime" style="margin-left: 4px;"></b></span>
+          </span>
+        </div>
+      </header>
+
+      <div class="crud-tabs">
+        <button class="crud-tab-btn active" id="tabBtnManage" data-tab="sectionManage">
+          ⚙️ Manage Tables & Columns
+        </button>
+        <button class="crud-tab-btn" id="tabBtnCreate" data-tab="sectionCreate">
+          ➕ Create New Table
+        </button>
+        <button class="crud-tab-btn" id="tabBtnRecords" data-tab="sectionRecords">
+          📝 Record CRUD (Insert & Delete)
+        </button>
+      </div>
+
+      <div id="crudAlert" class="status-msg"></div>
+
+      <!-- SECTION 1: MANAGE EXISTING TABLES & COLUMNS -->
+      <section id="sectionManage" class="crud-section active">
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Select Table to Manage</h2>
+              <p class="muted">Choose any existing database table to view structure, add columns, or drop table.</p>
+            </div>
+            <div style="min-width: 220px;">
+              <select id="manageTableSelect" class="search" style="width: 100%; cursor: pointer; font-weight: 600;">
+                <option value="">Loading tables…</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="tableMetaCard" style="display:none; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:14px 18px; margin-bottom:18px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+              <div>
+                <b id="metaTableName" style="font-size:16px; color:#0f172a;">—</b>
+                <span class="pill" id="metaTableEngine" style="margin-left:8px;">InnoDB</span>
+              </div>
+              <div style="font-size:13px; color:#64748b; display:flex; gap:18px;">
+                <span>Total Rows: <b id="metaTableRowCount" style="color:#0f172a;">0</b></span>
+                <span>Data Size: <b id="metaTableDataSize" style="color:#0f172a;">0 B</b></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Existing Columns List -->
+          <div style="margin-bottom: 24px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+              <h3 style="margin:0; font-size:15px; color:#1e293b;">Table Columns</h3>
+              <small class="muted" id="columnCountBadge">0 columns</small>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Column Name</th>
+                    <th>Data Type</th>
+                    <th>Key</th>
+                    <th>Nullable</th>
+                    <th>Default</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="manageColumnsTbody">
+                  <tr><td colspan="6" class="muted">Select a table to inspect columns</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Add New Column to Selected Table -->
+          <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:20px; margin-bottom:20px;">
+            <h3 style="margin:0 0 4px; font-size:15px; color:#1e293b;">➕ Add New Column</h3>
+            <p class="muted" style="margin:0 0 16px;">Add a new column into the currently selected table.</p>
+            
+            <form id="formAddColumn" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; align-items:flex-end;">
+              <label style="font-size:12px; font-weight:700; color:#475569;">Column Name
+                <input type="text" id="addColName" required placeholder="e.g. status, address" style="width:100%; border:1px solid #cbd5e1; border-radius:8px; padding:9px; margin-top:4px;">
+              </label>
+
+              <label style="font-size:12px; font-weight:700; color:#475569;">Data Type
+                <select id="addColType" style="width:100%; border:1px solid #cbd5e1; border-radius:8px; padding:9px; margin-top:4px;">
+                  <option value="VARCHAR(255)">VARCHAR(255)</option>
+                  <option value="VARCHAR(100)">VARCHAR(100)</option>
+                  <option value="INT">INT</option>
+                  <option value="BIGINT">BIGINT</option>
+                  <option value="TEXT">TEXT</option>
+                  <option value="BOOLEAN">BOOLEAN</option>
+                  <option value="DECIMAL(10,2)">DECIMAL(10,2)</option>
+                  <option value="DATETIME">DATETIME</option>
+                  <option value="TIMESTAMP">TIMESTAMP</option>
+                  <option value="JSON">JSON</option>
+                </select>
+              </label>
+
+              <label style="font-size:12px; font-weight:700; color:#475569;">Nullable
+                <select id="addColNullable" style="width:100%; border:1px solid #cbd5e1; border-radius:8px; padding:9px; margin-top:4px;">
+                  <option value="yes">YES (NULL)</option>
+                  <option value="no">NO (NOT NULL)</option>
+                </select>
+              </label>
+
+              <label style="font-size:12px; font-weight:700; color:#475569;">Default Value
+                <input type="text" id="addColDefault" placeholder="Optional (or CURRENT_TIMESTAMP)" style="width:100%; border:1px solid #cbd5e1; border-radius:8px; padding:9px; margin-top:4px;">
+              </label>
+
+              <label style="font-size:12px; font-weight:700; color:#475569;">Position
+                <select id="addColPosition" style="width:100%; border:1px solid #cbd5e1; border-radius:8px; padding:9px; margin-top:4px;">
+                  <option value="">At the end</option>
+                </select>
+              </label>
+
+              <div>
+                <button type="submit" class="btn primary full" id="btnAddColumnBtn" style="padding:10px;">
+                  ➕ Add Column
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Danger Zone: Drop Table -->
+          <div class="danger-panel">
+            <h4 style="margin:0 0 6px; color:#991b1b; font-size:15px;">⚠️ Danger Zone: Drop Table</h4>
+            <p style="margin:0 0 14px; font-size:13px; color:#b91c1c;">
+              Permanently delete this table and all its stored records from MySQL. This action cannot be reversed.
+            </p>
+            <button type="button" class="btn btn-danger" id="btnDropTable">
+              🗑️ Drop Table
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 2: CREATE NEW TABLE -->
+      <section id="sectionCreate" class="crud-section">
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Create New Table</h2>
+              <p class="muted">Define table name and schema columns with custom types, keys, and defaults.</p>
+            </div>
+          </div>
+
+          <form id="formCreateTable">
+            <div style="max-width:400px; margin-bottom:20px;">
+              <label style="display:block; font-size:13px; font-weight:700; color:#334155;">Table Name
+                <input type="text" id="inputNewTableName" required placeholder="e.g. products, customers, feedback" style="width:100%; border:1px solid #cbd5e1; border-radius:9px; padding:11px; margin-top:5px;">
+              </label>
+              <small class="muted">Letters, numbers, and underscores only (max 64 characters).</small>
+            </div>
+
+            <div style="margin-bottom:16px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <h3 style="margin:0; font-size:15px; color:#1e293b;">Columns Builder</h3>
+                <button type="button" class="btn" id="btnAddBuilderRow" style="padding:6px 12px; font-size:12px;">
+                  ➕ Add Column
+                </button>
+              </div>
+
+              <!-- Column Builder Header (Labels) -->
+              <div style="display:grid; grid-template-columns:160px 150px 90px 90px 100px 150px 45px; gap:10px; padding:0 12px; font-size:11px; font-weight:700; color:#64748b;">
+                <span>Column Name</span>
+                <span>Type</span>
+                <span>Nullable</span>
+                <span>Primary Key</span>
+                <span>Auto Incr</span>
+                <span>Default Value</span>
+                <span></span>
+              </div>
+
+              <div id="colBuilderContainer" style="margin-top:8px;">
+                <!-- Pre-populated rows will be rendered here -->
+              </div>
+            </div>
+
+            <div style="margin-top:20px;">
+              <button type="submit" class="btn primary" id="btnSubmitCreateTable" style="padding:12px 24px; font-size:14px; font-weight:700;">
+                🚀 Create Table
+              </button>
+            </div>
+
+            <!-- Live SQL Preview -->
+            <div style="margin-top:24px;">
+              <span style="font-size:12px; font-weight:700; color:#64748b;">SQL Preview:</span>
+              <pre class="sql-preview-box" id="sqlPreviewBox">CREATE TABLE ...</pre>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- SECTION 3: RECORD CRUD (INSERT & DELETE) -->
+      <section id="sectionRecords" class="crud-section">
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Record CRUD Operations</h2>
+              <p class="muted">Insert new data rows or remove individual records from any table.</p>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center;">
+              <select id="recordsTableSelect" class="search" style="min-width:200px; cursor:pointer; font-weight:600;">
+                <option value="">Loading tables…</option>
+              </select>
+              <button type="button" class="btn primary" id="btnOpenInsertModal">
+                ➕ Insert New Record
+              </button>
+            </div>
+          </div>
+
+          <div class="table-wrap" style="max-height: 550px;">
+            <table>
+              <thead id="recordsThead">
+                <tr><th>ID</th><th>Data</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="recordsTbody">
+                <tr><td colspan="3" class="muted">Select a table above to view records.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- MODAL: INSERT NEW RECORD -->
+      <div id="insertRecordModal" class="modal-backdrop">
+        <div class="modal-card" style="max-width: 600px;">
+          <div class="modal-head">
+            <h3 style="margin:0; font-size:16px;" id="insertModalTitle">➕ Insert Record</h3>
+            <button class="btn" id="closeInsertModalBtn" style="padding:4px 10px; font-weight:bold;">✕</button>
+          </div>
+          <div class="modal-body">
+            <div id="insertModalAlert" class="status-msg"></div>
+            <form id="formInsertRecord" style="display:grid; gap:14px;">
+              <div id="insertFieldsContainer" style="display:grid; gap:12px;"></div>
+              <button class="btn primary full" type="submit" id="btnSubmitInsertRecord" style="margin-top:6px;">
+                Save Record
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL: CONFIRM ACTION -->
+      <div id="confirmModal" class="modal-backdrop">
+        <div class="modal-card" style="max-width: 440px;">
+          <div class="modal-head">
+            <h3 style="margin:0; font-size:16px; color:#991b1b;" id="confirmModalTitle">⚠️ Confirm Deletion</h3>
+            <button class="btn" id="closeConfirmModalBtn" style="padding:4px 10px; font-weight:bold;">✕</button>
+          </div>
+          <div class="modal-body">
+            <p id="confirmModalText" style="margin:0 0 16px; font-size:14px; color:#334155;">Are you sure?</p>
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+              <button type="button" class="btn" id="cancelConfirmBtn">Cancel</button>
+              <button type="button" class="btn btn-danger" id="proceedConfirmBtn">Yes, Proceed</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/shell.js"></script>
+  <script src="/js/database-crud.js"></script>
+</body>
+</html>
+

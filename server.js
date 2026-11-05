@@ -32,6 +32,7 @@ app.get("/dashboard", (req, res) => res.redirect("/dashboard.html"));
 app.get("/admin", (req, res) => res.redirect("/login.html"));
 app.get("/forms", (req, res) => res.redirect("/index.html"));
 app.get("/settings", (req, res) => res.redirect("/settings.html"));
+app.get("/database-crud", (req, res) => res.redirect("/database-crud.html"));
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -756,6 +757,257 @@ app.get("/api/admin/tables/:table/records", requireAdmin, async (req, res, next)
     );
     res.json({ table: table.name, columns, records, total: Number(count.total) });
   } catch (error) { next(error); }
+});
+
+// Helper for validating SQL column data types safely
+function sanitizeDataType(type) {
+  if (!type || typeof type !== 'string') return null;
+  const t = type.trim();
+  const simpleTypes = [
+    'INT', 'TINYINT', 'SMALLINT', 'MEDIUMINT', 'BIGINT',
+    'FLOAT', 'DOUBLE', 'BOOLEAN', 'BOOL',
+    'DATE', 'DATETIME', 'TIMESTAMP', 'TIME', 'YEAR',
+    'TEXT', 'TINYTEXT', 'MEDIUMTEXT', 'LONGTEXT',
+    'JSON', 'BLOB', 'LONGBLOB'
+  ];
+  if (simpleTypes.includes(t.toUpperCase())) {
+    return t.toUpperCase();
+  }
+  if (/^VARCHAR\(\d+\)$/i.test(t)) {
+    const len = parseInt(t.match(/\d+/)[0], 10);
+    return len > 0 && len <= 65535 ? `VARCHAR(${len})` : null;
+  }
+  if (/^CHAR\(\d+\)$/i.test(t)) {
+    const len = parseInt(t.match(/\d+/)[0], 10);
+    return len > 0 && len <= 255 ? `CHAR(${len})` : null;
+  }
+  if (/^DECIMAL\(\d+,\s*\d+\)$/i.test(t)) {
+    const nums = t.match(/\d+/g).map(Number);
+    return nums[0] <= 65 && nums[1] <= 30 ? `DECIMAL(${nums[0]}, ${nums[1]})` : null;
+  }
+  if (/^INT\(\d+\)$/i.test(t)) {
+    return 'INT';
+  }
+  return null;
+}
+
+// 1. Create a new database table
+app.post("/api/admin/schema/create-table", requireAdmin, async (req, res, next) => {
+  try {
+    const { tableName, columns } = req.body;
+    if (!tableName || !/^[a-zA-Z0-9_]{1,64}$/.test(tableName)) {
+      return res.status(400).json({ message: "Invalid table name. Use letters, numbers, and underscores (max 64 chars)." });
+    }
+    if (!Array.isArray(columns) || columns.length === 0) {
+      return res.status(400).json({ message: "At least one column is required." });
+    }
+
+    const columnDefs = [];
+    const primaryKeys = [];
+
+    for (const col of columns) {
+      const colName = String(col.name || '').trim();
+      if (!/^[a-zA-Z0-9_]{1,64}$/.test(colName)) {
+        return res.status(400).json({ message: `Invalid column name "${colName}".` });
+      }
+
+      const colType = sanitizeDataType(col.type);
+      if (!colType) {
+        return res.status(400).json({ message: `Invalid or unsupported data type for column "${colName}".` });
+      }
+
+      let def = `${escapeIdentifier(colName)} ${colType}`;
+      if (col.autoIncrement) {
+        def += " AUTO_INCREMENT";
+        if (!primaryKeys.includes(escapeIdentifier(colName))) {
+          primaryKeys.push(escapeIdentifier(colName));
+        }
+      }
+      if (col.nullable === false || col.notNull) {
+        def += " NOT NULL";
+      } else {
+        def += " NULL";
+      }
+      if (col.defaultValue !== undefined && col.defaultValue !== null && col.defaultValue !== "") {
+        if (String(col.defaultValue).toUpperCase() === "CURRENT_TIMESTAMP") {
+          def += " DEFAULT CURRENT_TIMESTAMP";
+        } else {
+          def += ` DEFAULT ${db.escape(col.defaultValue)}`;
+        }
+      }
+      if (col.isPrimary && !primaryKeys.includes(escapeIdentifier(colName))) {
+        primaryKeys.push(escapeIdentifier(colName));
+      }
+      columnDefs.push(def);
+    }
+
+    if (primaryKeys.length > 0) {
+      columnDefs.push(`PRIMARY KEY (${primaryKeys.join(", ")})`);
+    }
+
+    const sql = `CREATE TABLE ${escapeIdentifier(tableName)} (\n  ${columnDefs.join(",\n  ")}\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`;
+    await db.query(sql);
+
+    res.json({ success: true, message: `Table "${tableName}" created successfully!` });
+  } catch (error) {
+    if (error.code === 'ER_TABLE_EXISTS_ERROR') {
+      return res.status(400).json({ message: `Table "${req.body.tableName}" already exists.` });
+    }
+    next(error);
+  }
+});
+
+// 2. Drop / Delete a table
+app.delete("/api/admin/schema/drop-table/:table", requireAdmin, async (req, res, next) => {
+  try {
+    const tableName = String(req.params.table || '').trim();
+    if (!/^[a-zA-Z0-9_]{1,64}$/.test(tableName)) {
+      return res.status(400).json({ message: "Invalid table name." });
+    }
+    if (tableName === 'admin_users') {
+      return res.status(403).json({ message: "Security restriction: The 'admin_users' table cannot be dropped." });
+    }
+
+    const table = await findAdminTable(tableName);
+    if (!table) return res.status(404).json({ message: `Table "${tableName}" not found.` });
+
+    await db.query(`DROP TABLE ${escapeIdentifier(tableName)}`);
+    res.json({ success: true, message: `Table "${tableName}" has been dropped successfully.` });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// 3. Add column to existing table
+app.post("/api/admin/schema/add-column", requireAdmin, async (req, res, next) => {
+  try {
+    const { tableName, columnName, columnType, nullable, defaultValue, afterColumn } = req.body;
+    if (!tableName || !/^[a-zA-Z0-9_]{1,64}$/.test(tableName)) {
+      return res.status(400).json({ message: "Invalid table name." });
+    }
+    if (!columnName || !/^[a-zA-Z0-9_]{1,64}$/.test(columnName)) {
+      return res.status(400).json({ message: "Invalid column name." });
+    }
+
+    const table = await findAdminTable(tableName);
+    if (!table) return res.status(404).json({ message: `Table "${tableName}" not found.` });
+
+    const sanitizedType = sanitizeDataType(columnType);
+    if (!sanitizedType) {
+      return res.status(400).json({ message: "Invalid or unsupported data type." });
+    }
+
+    let sql = `ALTER TABLE ${escapeIdentifier(tableName)} ADD COLUMN ${escapeIdentifier(columnName)} ${sanitizedType}`;
+    if (nullable === false) {
+      sql += " NOT NULL";
+    } else {
+      sql += " NULL";
+    }
+    if (defaultValue !== undefined && defaultValue !== null && defaultValue !== "") {
+      if (String(defaultValue).toUpperCase() === "CURRENT_TIMESTAMP") {
+        sql += " DEFAULT CURRENT_TIMESTAMP";
+      } else {
+        sql += ` DEFAULT ${db.escape(defaultValue)}`;
+      }
+    }
+    if (afterColumn && /^[a-zA-Z0-9_]{1,64}$/.test(afterColumn)) {
+      sql += ` AFTER ${escapeIdentifier(afterColumn)}`;
+    }
+
+    await db.query(sql);
+    res.json({ success: true, message: `Column "${columnName}" added to "${tableName}" successfully!` });
+  } catch (error) {
+    if (error.code === 'ER_DUP_FIELDNAME') {
+      return res.status(400).json({ message: `Column "${req.body.columnName}" already exists in table "${req.body.tableName}".` });
+    }
+    next(error);
+  }
+});
+
+// 4. Drop column from table
+app.delete("/api/admin/schema/drop-column", requireAdmin, async (req, res, next) => {
+  try {
+    const { tableName, columnName } = req.body;
+    if (!tableName || !/^[a-zA-Z0-9_]{1,64}$/.test(tableName)) {
+      return res.status(400).json({ message: "Invalid table name." });
+    }
+    if (!columnName || !/^[a-zA-Z0-9_]{1,64}$/.test(columnName)) {
+      return res.status(400).json({ message: "Invalid column name." });
+    }
+
+    if (tableName === 'admin_users' && ['id', 'email', 'password_hash', 'password_salt'].includes(columnName)) {
+      return res.status(403).json({ message: `Cannot delete critical column "${columnName}" from admin_users.` });
+    }
+
+    const table = await findAdminTable(tableName);
+    if (!table) return res.status(404).json({ message: `Table "${tableName}" not found.` });
+
+    await db.query(`ALTER TABLE ${escapeIdentifier(tableName)} DROP COLUMN ${escapeIdentifier(columnName)}`);
+    res.json({ success: true, message: `Column "${columnName}" removed from table "${tableName}".` });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// 5. Insert new record into table
+app.post("/api/admin/tables/:table/records", requireAdmin, async (req, res, next) => {
+  try {
+    const table = await findAdminTable(req.params.table);
+    if (!table) return res.status(404).json({ message: "Table not found." });
+
+    const data = req.body || {};
+    const [columnRows] = await db.execute(
+      "SELECT COLUMN_NAME AS name, EXTRA as extra FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?",
+      [table.name]
+    );
+    const validCols = new Set(columnRows.map(c => c.name));
+    const autoCols = new Set(columnRows.filter(c => String(c.extra).includes('auto_increment')).map(c => c.name));
+
+    const keys = Object.keys(data).filter(k => validCols.has(k) && !autoCols.has(k) && data[k] !== undefined);
+    if (keys.length === 0) {
+      return res.status(400).json({ message: "No valid column values provided." });
+    }
+
+    const colsSql = keys.map(k => escapeIdentifier(k)).join(", ");
+    const placeholders = keys.map(() => "?").join(", ");
+    const values = keys.map(k => (data[k] === "" ? null : data[k]));
+
+    const [result] = await db.query(
+      `INSERT INTO ${escapeIdentifier(table.name)} (${colsSql}) VALUES (${placeholders})`,
+      values
+    );
+
+    res.json({ success: true, insertId: result.insertId, message: "Record inserted successfully!" });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// 6. Delete record from table
+app.delete("/api/admin/tables/:table/records/:id", requireAdmin, async (req, res, next) => {
+  try {
+    const table = await findAdminTable(req.params.table);
+    if (!table) return res.status(404).json({ message: "Table not found." });
+
+    const [pks] = await db.execute(
+      "SELECT COLUMN_NAME AS name FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND CONSTRAINT_NAME = 'PRIMARY'",
+      [table.name]
+    );
+    const pkName = pks.length ? pks[0].name : "id";
+
+    const [result] = await db.query(
+      `DELETE FROM ${escapeIdentifier(table.name)} WHERE ${escapeIdentifier(pkName)} = ? LIMIT 1`,
+      [req.params.id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Record not found or already deleted." });
+    }
+
+    res.json({ success: true, message: `Record deleted successfully.` });
+  } catch (error) {
+    next(error);
+  }
 });
 
 // General form submission
