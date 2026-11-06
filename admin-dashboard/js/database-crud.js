@@ -122,10 +122,10 @@ async function loadTableSchema(tableName) {
 
       return `
         <tr>
-          <td><b style="color:#0f172a;">${API.escape(col.name)}</b></td>
+          <td><b class="col-name-label">${API.escape(col.name)}</b></td>
           <td><code>${API.escape(col.type)}</code></td>
-          <td>${isPk ? '<span class="pill" style="background:#e0e7ff; color:#3730a3; font-weight:800;">PRIMARY</span>' : (col.key ? `<span class="pill">${API.escape(col.key)}</span>` : '—')}</td>
-          <td>${col.nullable ? '<span style="color:#10b981;">YES</span>' : '<span style="color:#f59e0b; font-weight:600;">NO</span>'}</td>
+          <td>${isPk ? '<span class="pill primary-key-pill">PRIMARY</span>' : (col.key ? `<span class="pill">${API.escape(col.key)}</span>` : '—')}</td>
+          <td>${col.nullable ? '<span class="val-nullable-yes">YES</span>' : '<span class="val-nullable-no">NO</span>'}</td>
           <td>${col.default !== null && col.default !== undefined ? API.escape(col.default) : '<span class="muted">None</span>'}</td>
           <td>${dropBtn}</td>
         </tr>

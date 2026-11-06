@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Database CRUD & Schema - Admin Console</title>
-  <link rel="stylesheet" href="/css/app.css?v=5">
+  <link rel="stylesheet" href="/css/app.css?v=6">
   <script>
     (function(){var s=localStorage.getItem('admin_theme')||'system';var d=s==='dark'||(s==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d){document.documentElement.setAttribute('data-theme','dark');}else{document.documentElement.setAttribute('data-theme','light');}})();
   </script>
@@ -282,7 +282,31 @@
       color: #ffffff !important;
     }
 
+    .col-name-label { color: #0f172a; }
+    .primary-key-pill { background: #e0e7ff; color: #3730a3; font-weight: 800; }
+    .val-nullable-yes { color: #10b981; }
+    .val-nullable-no { color: #f59e0b; font-weight: 600; }
+    .sql-preview-label { font-size: 12px; font-weight: 700; color: #64748b; }
+
     /* Dark Mode Danger Panel */
+    [data-theme="dark"] .col-name-label {
+      color: #f8fafc !important;
+    }
+    [data-theme="dark"] .primary-key-pill {
+      background: rgba(99, 102, 241, 0.2) !important;
+      color: #a5b4fc !important;
+      border: 1px solid rgba(99, 102, 241, 0.4) !important;
+    }
+    [data-theme="dark"] .val-nullable-yes {
+      color: #34d399 !important;
+      font-weight: 600 !important;
+    }
+    [data-theme="dark"] .val-nullable-no {
+      color: #fbbf24 !important;
+    }
+    [data-theme="dark"] .sql-preview-label {
+      color: #94a3b8 !important;
+    }
     [data-theme="dark"] .danger-panel {
       background: rgba(239, 68, 68, 0.08) !important;
       border-color: rgba(239, 68, 68, 0.25) !important;
@@ -573,7 +597,7 @@
 
             <!-- Live SQL Preview -->
             <div style="margin-top:24px;">
-              <span style="font-size:12px; font-weight:700; color:#64748b;">SQL Preview:</span>
+              <span class="sql-preview-label">SQL Preview:</span>
               <pre class="sql-preview-box" id="sqlPreviewBox">CREATE TABLE ...</pre>
             </div>
           </form>
