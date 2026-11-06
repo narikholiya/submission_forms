@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Database CRUD & Schema - Admin Console</title>
-  <link rel="stylesheet" href="/css/app.css?v=4">
+  <link rel="stylesheet" href="/css/app.css?v=5">
   <script>
     (function(){var s=localStorage.getItem('admin_theme')||'system';var d=s==='dark'||(s==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d){document.documentElement.setAttribute('data-theme','dark');}else{document.documentElement.setAttribute('data-theme','light');}})();
   </script>
@@ -309,10 +309,15 @@
       border-bottom: 1px solid #1f2937 !important;
       color: #f8fafc !important;
     }
+    #confirmModalTitle {
+      color: #991b1b;
+    }
     [data-theme="dark"] .modal-head h3,
-    [data-theme="dark"] #confirmModalTitle,
     [data-theme="dark"] #insertModalTitle {
       color: #f8fafc !important;
+    }
+    [data-theme="dark"] #confirmModalTitle {
+      color: #f87171 !important;
     }
     [data-theme="dark"] #closeConfirmModalBtn,
     [data-theme="dark"] #closeInsertModalBtn {
@@ -629,7 +634,7 @@
       <div id="confirmModal" class="modal-backdrop">
         <div class="modal-card" style="max-width: 440px;">
           <div class="modal-head">
-            <h3 style="margin:0; font-size:16px; color:#991b1b;" id="confirmModalTitle">⚠️ Confirm Deletion</h3>
+            <h3 style="margin:0; font-size:16px;" id="confirmModalTitle">⚠️ Confirm Deletion</h3>
             <button class="btn" id="closeConfirmModalBtn" style="padding:4px 10px; font-weight:bold;">✕</button>
           </div>
           <div class="modal-body">

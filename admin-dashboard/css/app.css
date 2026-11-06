@@ -310,6 +310,20 @@ body {
 .btn.primary:hover {
   background: #1b50dc;
 }
+.btn-danger,
+.btn.danger,
+.btn.btn-danger {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  border-color: #dc2626 !important;
+}
+.btn-danger:hover,
+.btn.danger:hover,
+.btn.btn-danger:hover {
+  background: #b91c1c !important;
+  border-color: #b91c1c !important;
+  color: #ffffff !important;
+}
 .btn.dark {
   background: #111827;
   color: #fff;
