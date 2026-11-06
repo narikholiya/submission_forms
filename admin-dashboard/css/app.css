@@ -1408,30 +1408,115 @@ td a {
   box-shadow: 0 2px 10px rgba(37, 99, 235, 0.4) !important;
 }
 
+/* Dark Mode Modals & Popups */
+[data-theme="dark"] .modal-backdrop {
+  background: rgba(0, 0, 0, 0.75) !important;
+  backdrop-filter: blur(4px) !important;
+}
+
 [data-theme="dark"] .modal-content,
 [data-theme="dark"] .modal-card,
-[data-theme="dark"] #entryDetailModal > div {
+[data-theme="dark"] #entryDetailModal > div,
+[data-theme="dark"] #detailModal > div,
+[data-theme="dark"] #confirmModal > div,
+[data-theme="dark"] #insertRecordModal > div {
   background: #111827 !important;
-  border-color: #1f2937 !important;
-  color: #e2e8f0 !important;
+  border: 1px solid #1f2937 !important;
+  color: #f8fafc !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8) !important;
 }
 
-[data-theme="dark"] .field-row {
-  border-bottom-color: #1f2937 !important;
-}
-
-[data-theme="dark"] .field-label {
-  color: #94a3b8 !important;
-}
-
-[data-theme="dark"] .field-val {
+[data-theme="dark"] .modal-head {
+  background: #111827 !important;
+  border-bottom: 1px solid #1f2937 !important;
   color: #f8fafc !important;
 }
 
+[data-theme="dark"] .modal-head h3,
+[data-theme="dark"] .modal-head h4,
+[data-theme="dark"] .modal-head span,
+[data-theme="dark"] #entryModalTitle,
+[data-theme="dark"] #modalTitle,
+[data-theme="dark"] #confirmModalTitle,
+[data-theme="dark"] #insertModalTitle {
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .modal-head .btn,
+[data-theme="dark"] #closeModalBtn,
+[data-theme="dark"] #closeEntryModalBtn,
+[data-theme="dark"] #closeConfirmModalBtn,
+[data-theme="dark"] #closeInsertModalBtn {
+  background: #1f2937 !important;
+  color: #f8fafc !important;
+  border: 1px solid #374151 !important;
+}
+
+[data-theme="dark"] .modal-head .btn:hover,
+[data-theme="dark"] #closeModalBtn:hover,
+[data-theme="dark"] #closeEntryModalBtn:hover,
+[data-theme="dark"] #closeConfirmModalBtn:hover,
+[data-theme="dark"] #closeInsertModalBtn:hover {
+  background: #374151 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .modal-body {
+  background: #111827 !important;
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .field-row {
+  border-bottom: 1px solid #1f2937 !important;
+}
+
+[data-theme="dark"] .field-label {
+  color: #cbd5e1 !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .field-val,
+[data-theme="dark"] .field-value {
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .field-val pre,
+[data-theme="dark"] .field-value pre,
 [data-theme="dark"] pre {
   background: #0b1120 !important;
-  border-color: #1f2937 !important;
+  border: 1px solid #1f2937 !important;
   color: #38bdf8 !important;
+}
+
+[data-theme="dark"] .modal-body label {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .modal-body input,
+[data-theme="dark"] .modal-body select,
+[data-theme="dark"] .modal-body textarea {
+  background: #0b1120 !important;
+  border: 1px solid #374151 !important;
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] #confirmModalText {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] #confirmModalText b {
+  color: #60a5fa !important;
+}
+
+[data-theme="dark"] #cancelConfirmBtn {
+  background: #1f2937 !important;
+  color: #cbd5e1 !important;
+  border: 1px solid #374151 !important;
+}
+
+[data-theme="dark"] #cancelConfirmBtn:hover {
+  background: #374151 !important;
+  color: #ffffff !important;
 }
 
 [data-theme="dark"] .pwd-wrapper input {
@@ -1651,4 +1736,92 @@ td a {
 }
 [data-theme="dark"] td a:hover {
   color: #93c5fd !important;
+}
+
+/* =========================================================================
+   Database CRUD Dark Mode Rules
+   ========================================================================= */
+[data-theme="dark"] .table-meta-card {
+  background: #111827 !important;
+  border-color: #1f2937 !important;
+}
+[data-theme="dark"] .meta-name {
+  color: #f8fafc !important;
+}
+[data-theme="dark"] .meta-stats-text {
+  color: #94a3b8 !important;
+}
+[data-theme="dark"] .meta-stats-text b {
+  color: #60a5fa !important;
+}
+[data-theme="dark"] .section-subheading {
+  color: #f8fafc !important;
+}
+[data-theme="dark"] .crud-inner-card {
+  background: #111827 !important;
+  border-color: #1f2937 !important;
+}
+[data-theme="dark"] .crud-inner-title {
+  color: #f8fafc !important;
+}
+[data-theme="dark"] .crud-form-label {
+  color: #cbd5e1 !important;
+}
+[data-theme="dark"] .crud-form-input,
+[data-theme="dark"] .crud-form-select {
+  background: #0f172a !important;
+  border-color: #374151 !important;
+  color: #f8fafc !important;
+}
+[data-theme="dark"] .crud-form-input::placeholder {
+  color: #64748b !important;
+}
+[data-theme="dark"] .col-builder-header {
+  color: #94a3b8 !important;
+}
+[data-theme="dark"] .col-builder-row {
+  background: #111827 !important;
+  border-color: #1f2937 !important;
+  color: #f8fafc !important;
+}
+[data-theme="dark"] .builder-checkbox-label {
+  color: #e2e8f0 !important;
+}
+[data-theme="dark"] .btn-remove-row {
+  background: #1e293b !important;
+  border-color: #7f1d1d !important;
+  color: #f87171 !important;
+}
+[data-theme="dark"] .btn-remove-row:hover {
+  background: #7f1d1d !important;
+  color: #ffffff !important;
+}
+[data-theme="dark"] .danger-panel {
+  background: rgba(239, 68, 68, 0.08) !important;
+  border-color: rgba(239, 68, 68, 0.25) !important;
+}
+[data-theme="dark"] .danger-panel h4 {
+  color: #f87171 !important;
+}
+[data-theme="dark"] .danger-panel p {
+  color: #fca5a5 !important;
+}
+[data-theme="dark"] .crud-tabs {
+  border-bottom-color: #1f2937 !important;
+}
+[data-theme="dark"] .crud-tab-btn {
+  background: #111827 !important;
+  border-color: #1f2937 !important;
+  color: #94a3b8 !important;
+}
+[data-theme="dark"] .crud-tab-btn:hover {
+  background: #1f2937 !important;
+  border-color: #374151 !important;
+  color: #f8fafc !important;
+}
+[data-theme="dark"] .crud-tab-btn.active {
+  background: #2563eb !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4) !important;
 }

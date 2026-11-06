@@ -270,9 +270,9 @@ function renderBuilderRows() {
 
   container.innerHTML = builderRows.map((row, idx) => `
     <div class="col-builder-row">
-      <input type="text" placeholder="column_name" value="${API.escape(row.name)}" oninput="updateBuilderField(${idx}, 'name', this.value)" style="width:100%; border:1px solid #cbd5e1; border-radius:8px; padding:7px;" required>
+      <input type="text" class="crud-form-input" placeholder="column_name" value="${API.escape(row.name)}" oninput="updateBuilderField(${idx}, 'name', this.value)" style="margin-top:0;" required>
       
-      <select onchange="updateBuilderField(${idx}, 'type', this.value)" style="width:100%; border:1px solid #cbd5e1; border-radius:8px; padding:7px;">
+      <select class="crud-form-select" onchange="updateBuilderField(${idx}, 'type', this.value)" style="margin-top:0;">
         <option value="INT" ${row.type === 'INT' ? 'selected' : ''}>INT</option>
         <option value="BIGINT" ${row.type === 'BIGINT' ? 'selected' : ''}>BIGINT</option>
         <option value="VARCHAR(255)" ${row.type === 'VARCHAR(255)' ? 'selected' : ''}>VARCHAR(255)</option>
@@ -285,21 +285,21 @@ function renderBuilderRows() {
         <option value="JSON" ${row.type === 'JSON' ? 'selected' : ''}>JSON</option>
       </select>
 
-      <label style="font-size:12px; display:flex; align-items:center; gap:4px; cursor:pointer;">
+      <label class="builder-checkbox-label">
         <input type="checkbox" ${row.nullable ? 'checked' : ''} onchange="updateBuilderField(${idx}, 'nullable', this.checked)"> NULL
       </label>
 
-      <label style="font-size:12px; display:flex; align-items:center; gap:4px; cursor:pointer;">
+      <label class="builder-checkbox-label">
         <input type="checkbox" ${row.isPrimary ? 'checked' : ''} onchange="updateBuilderField(${idx}, 'isPrimary', this.checked)"> PK
       </label>
 
-      <label style="font-size:12px; display:flex; align-items:center; gap:4px; cursor:pointer;">
+      <label class="builder-checkbox-label">
         <input type="checkbox" ${row.autoIncrement ? 'checked' : ''} onchange="updateBuilderField(${idx}, 'autoIncrement', this.checked)"> Auto
       </label>
 
-      <input type="text" placeholder="Default" value="${API.escape(row.defaultValue)}" oninput="updateBuilderField(${idx}, 'defaultValue', this.value)" style="width:100%; border:1px solid #cbd5e1; border-radius:8px; padding:7px;">
+      <input type="text" class="crud-form-input" placeholder="Default" value="${API.escape(row.defaultValue)}" oninput="updateBuilderField(${idx}, 'defaultValue', this.value)" style="margin-top:0;">
 
-      <button type="button" class="btn" style="padding:4px 8px; color:#ef4444; border-color:#fecaca;" onclick="removeBuilderRow(${idx})" title="Remove column">✕</button>
+      <button type="button" class="btn btn-remove-row" onclick="removeBuilderRow(${idx})" title="Remove column">✕</button>
     </div>
   `).join('');
 
@@ -415,7 +415,7 @@ async function loadRecordsTab() {
       return;
     }
 
-    thead.innerHTML = `<tr>${cols.map(c => `<th>${API.escape(c)}</th>`).join('')}<th>Action</th></tr>`;
+    thead.innerHTML = `<tr>${cols.map(c => `<th>${API.escape(c)}</th>`).join('')}<th style="text-align: center; min-width: 90px;">Action</th></tr>`;
 
     if (rows.length === 0) {
       tbody.innerHTML = `<tr><td colspan="${cols.length + 1}" class="muted" style="text-align:center; padding:30px;">No records found in table "${API.escape(tName)}". Click "+ Insert New Record" to add one!</td></tr>`;
@@ -423,10 +423,15 @@ async function loadRecordsTab() {
     }
 
     tbody.innerHTML = rows.map(r => {
-      const recordId = r.id || r[cols[0]];
+      const recordId = r.id !== undefined && r.id !== null ? r.id : r[cols[0]];
       const cells = cols.map(c => {
         const val = r[c];
-        if (val === null || val === undefined) return '<span class="muted">NULL</span>';
+        if (val === null || val === undefined) {
+          return '<td><span class="muted">NULL</span></td>';
+        }
+        if (typeof val === 'object') {
+          return `<td><code>${API.escape(JSON.stringify(val))}</code></td>`;
+        }
         const str = String(val);
         return `<td>${API.escape(str.length > 60 ? str.slice(0, 60) + '…' : str)}</td>`;
       }).join('');
@@ -434,8 +439,8 @@ async function loadRecordsTab() {
       return `
         <tr>
           ${cells}
-          <td>
-            <button type="button" class="btn" style="padding:4px 8px; font-size:11px; color:#ef4444; border-color:#fca5a5;" onclick="confirmDeleteRecord('${API.escape(recordId)}')">
+          <td style="text-align: center; white-space: nowrap;">
+            <button type="button" class="btn" style="padding: 4px 10px; font-size: 11px; color: #ef4444; border-color: #fca5a5; display: inline-flex; align-items: center; gap: 4px;" onclick="confirmDeleteRecord('${API.escape(recordId)}')">
               🗑️ Delete
             </button>
           </td>
@@ -483,9 +488,9 @@ document.getElementById('btnOpenInsertModal')?.addEventListener('click', async (
     const insertableCols = cols.filter(c => c.extra !== 'auto_increment');
 
     container.innerHTML = insertableCols.map(c => `
-      <label style="font-size:13px; font-weight:700; color:#334155;">
+      <label style="font-size:13px; font-weight:700; display:block;">
         ${API.escape(c.name)} <small class="muted">(${API.escape(c.type)})</small>
-        <input type="text" name="${API.escape(c.name)}" placeholder="${c.nullable ? 'Optional (NULL)' : 'Required'}" ${c.nullable ? '' : 'required'} style="width:100%; border:1px solid #cbd5e1; border-radius:8px; padding:9px; margin-top:4px;">
+        <input type="text" name="${API.escape(c.name)}" placeholder="${c.nullable ? 'Optional (NULL)' : 'Required'}" ${c.nullable ? '' : 'required'} style="width:100%; border-radius:8px; padding:9px; margin-top:4px; box-sizing:border-box;">
       </label>
     `).join('');
 

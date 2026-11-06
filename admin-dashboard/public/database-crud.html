@@ -4,11 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Database CRUD & Schema - Admin Console</title>
-  <link rel="stylesheet" href="/css/app.css">
+  <link rel="stylesheet" href="/css/app.css?v=4">
   <script>
     (function(){var s=localStorage.getItem('admin_theme')||'system';var d=s==='dark'||(s==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d){document.documentElement.setAttribute('data-theme','dark');}else{document.documentElement.setAttribute('data-theme','light');}})();
   </script>
   <style>
+    /* CRUD Tab Buttons */
     .crud-tabs {
       display: flex;
       gap: 10px;
@@ -19,7 +20,7 @@
     .crud-tab-btn {
       padding: 10px 18px;
       border-radius: 10px;
-      border: 1px solid transparent;
+      border: 1px solid #e2e8f0;
       background: #ffffff;
       color: #64748b;
       font-weight: 700;
@@ -46,6 +47,89 @@
     .crud-section.active {
       display: block;
     }
+
+    /* Table Meta Card (Overview of selected table) */
+    .table-meta-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 14px 18px;
+      margin-bottom: 18px;
+    }
+    .meta-name {
+      font-size: 16px;
+      color: #0f172a;
+    }
+    .meta-stats-text {
+      color: #64748b;
+      font-size: 13px;
+    }
+    .meta-stats-text b {
+      color: #0f172a;
+    }
+
+    /* Headings */
+    .section-subheading {
+      margin: 0;
+      font-size: 15px;
+      color: #1e293b;
+      font-weight: 700;
+    }
+
+    /* Inner Card (e.g. Add Column) */
+    .crud-inner-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .crud-inner-title {
+      margin: 0 0 4px;
+      font-size: 15px;
+      color: #1e293b;
+      font-weight: 700;
+    }
+    .crud-add-col-form {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      align-items: flex-end;
+    }
+
+    /* Labels and Inputs */
+    .crud-form-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #475569;
+      display: flex;
+      flex-direction: column;
+    }
+    .crud-form-input,
+    .crud-form-select {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 9px;
+      margin-top: 4px;
+      background: #ffffff;
+      color: #0f172a;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .crud-form-input:focus,
+    .crud-form-select:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+
+    /* Column Builder Header & Rows */
+    .col-builder-header {
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 700;
+    }
     .col-builder-row {
       display: grid;
       grid-template-columns: 160px 150px 90px 90px 100px 150px 45px;
@@ -62,6 +146,44 @@
         grid-template-columns: 1fr;
       }
     }
+    .builder-checkbox-label {
+      font-size: 12px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+      color: #334155;
+    }
+    .btn-remove-row {
+      padding: 6px 10px;
+      color: #ef4444;
+      border-color: #fecaca;
+      font-size: 12px;
+      background: #ffffff;
+      cursor: pointer;
+    }
+
+    /* Danger Panel */
+    .danger-panel {
+      border: 1px solid #fecaca;
+      background: #fef2f2;
+      border-radius: 16px;
+      padding: 20px;
+      margin-top: 24px;
+    }
+    .danger-panel h4 {
+      margin: 0 0 6px;
+      color: #991b1b;
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .danger-panel p {
+      margin: 0 0 14px;
+      font-size: 13px;
+      color: #b91c1c;
+    }
+
     .sql-preview-box {
       background: #0f172a;
       color: #38bdf8;
@@ -73,12 +195,166 @@
       white-space: pre-wrap;
       border: 1px solid #1e293b;
     }
-    .danger-panel {
-      border: 1px solid #fecaca;
-      background: #fef2f2;
-      border-radius: 16px;
-      padding: 20px;
-      margin-top: 24px;
+
+    /* =========================================================================
+       DARK MODE OVERRIDES FOR DATABASE CRUD
+       ========================================================================= */
+    [data-theme="dark"] .crud-tabs {
+      border-bottom-color: #1f2937 !important;
+    }
+    [data-theme="dark"] .crud-tab-btn {
+      background: #111827 !important;
+      border-color: #1f2937 !important;
+      color: #94a3b8 !important;
+    }
+    [data-theme="dark"] .crud-tab-btn:hover {
+      background: #1f2937 !important;
+      border-color: #374151 !important;
+      color: #f8fafc !important;
+    }
+    [data-theme="dark"] .crud-tab-btn.active {
+      background: #2563eb !important;
+      border-color: #2563eb !important;
+      color: #ffffff !important;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4) !important;
+    }
+
+    /* Dark Mode Table Meta Card */
+    [data-theme="dark"] .table-meta-card {
+      background: #111827 !important;
+      border-color: #1f2937 !important;
+    }
+    [data-theme="dark"] .meta-name {
+      color: #f8fafc !important;
+    }
+    [data-theme="dark"] .meta-stats-text {
+      color: #94a3b8 !important;
+    }
+    [data-theme="dark"] .meta-stats-text b {
+      color: #60a5fa !important;
+    }
+
+    /* Dark Mode Subheading */
+    [data-theme="dark"] .section-subheading {
+      color: #f8fafc !important;
+    }
+
+    /* Dark Mode Inner Cards */
+    [data-theme="dark"] .crud-inner-card {
+      background: #111827 !important;
+      border-color: #1f2937 !important;
+    }
+    [data-theme="dark"] .crud-inner-title {
+      color: #f8fafc !important;
+    }
+    [data-theme="dark"] .crud-form-label {
+      color: #cbd5e1 !important;
+    }
+    [data-theme="dark"] .crud-form-input,
+    [data-theme="dark"] .crud-form-select {
+      background: #0f172a !important;
+      border-color: #374151 !important;
+      color: #f8fafc !important;
+    }
+    [data-theme="dark"] .crud-form-input::placeholder {
+      color: #64748b !important;
+    }
+
+    /* Dark Mode Column Builder Rows */
+    [data-theme="dark"] .col-builder-header {
+      color: #94a3b8 !important;
+    }
+    [data-theme="dark"] .col-builder-row {
+      background: #111827 !important;
+      border-color: #1f2937 !important;
+      color: #f8fafc !important;
+    }
+    [data-theme="dark"] .builder-checkbox-label {
+      color: #e2e8f0 !important;
+    }
+    [data-theme="dark"] .btn-remove-row {
+      background: #1e293b !important;
+      border-color: #7f1d1d !important;
+      color: #f87171 !important;
+    }
+    [data-theme="dark"] .btn-remove-row:hover {
+      background: #7f1d1d !important;
+      color: #ffffff !important;
+    }
+
+    /* Dark Mode Danger Panel */
+    [data-theme="dark"] .danger-panel {
+      background: rgba(239, 68, 68, 0.08) !important;
+      border-color: rgba(239, 68, 68, 0.25) !important;
+    }
+    [data-theme="dark"] .danger-panel h4 {
+      color: #f87171 !important;
+    }
+    [data-theme="dark"] .danger-panel p {
+      color: #fca5a5 !important;
+    }
+
+    /* Dark Mode Modals */
+    [data-theme="dark"] .modal-backdrop {
+      background: rgba(0, 0, 0, 0.75) !important;
+    }
+    [data-theme="dark"] .modal-card {
+      background: #111827 !important;
+      border: 1px solid #1f2937 !important;
+      color: #f8fafc !important;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8) !important;
+    }
+    [data-theme="dark"] .modal-head {
+      background: #111827 !important;
+      border-bottom: 1px solid #1f2937 !important;
+      color: #f8fafc !important;
+    }
+    [data-theme="dark"] .modal-head h3,
+    [data-theme="dark"] #confirmModalTitle,
+    [data-theme="dark"] #insertModalTitle {
+      color: #f8fafc !important;
+    }
+    [data-theme="dark"] #closeConfirmModalBtn,
+    [data-theme="dark"] #closeInsertModalBtn {
+      background: #1f2937 !important;
+      color: #f8fafc !important;
+      border: 1px solid #374151 !important;
+    }
+    [data-theme="dark"] #closeConfirmModalBtn:hover,
+    [data-theme="dark"] #closeInsertModalBtn:hover {
+      background: #374151 !important;
+      color: #ffffff !important;
+    }
+    [data-theme="dark"] .modal-body {
+      background: #111827 !important;
+      color: #f8fafc !important;
+    }
+    [data-theme="dark"] .modal-body label {
+      color: #cbd5e1 !important;
+    }
+    [data-theme="dark"] .modal-body input,
+    [data-theme="dark"] .modal-body select,
+    [data-theme="dark"] .modal-body textarea {
+      background: #0b1120 !important;
+      border: 1px solid #374151 !important;
+      color: #f8fafc !important;
+    }
+    [data-theme="dark"] #confirmModalText,
+    [data-theme="dark"] .confirm-modal-desc {
+      color: #cbd5e1 !important;
+    }
+    [data-theme="dark"] #confirmModalText b,
+    [data-theme="dark"] .confirm-modal-desc b {
+      color: #60a5fa !important;
+    }
+    [data-theme="dark"] #cancelConfirmBtn {
+      background: #1f2937 !important;
+      color: #cbd5e1 !important;
+      border: 1px solid #374151 !important;
+    }
+    [data-theme="dark"] #cancelConfirmBtn:hover {
+      background: #374151 !important;
+      color: #ffffff !important;
     }
   </style>
 </head>
@@ -141,15 +417,15 @@
             </div>
           </div>
 
-          <div id="tableMetaCard" style="display:none; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:14px 18px; margin-bottom:18px;">
+          <div id="tableMetaCard" class="table-meta-card" style="display:none;">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
               <div>
-                <b id="metaTableName" style="font-size:16px; color:#0f172a;">—</b>
+                <b id="metaTableName" class="meta-name">—</b>
                 <span class="pill" id="metaTableEngine" style="margin-left:8px;">InnoDB</span>
               </div>
-              <div style="font-size:13px; color:#64748b; display:flex; gap:18px;">
-                <span>Total Rows: <b id="metaTableRowCount" style="color:#0f172a;">0</b></span>
-                <span>Data Size: <b id="metaTableDataSize" style="color:#0f172a;">0 B</b></span>
+              <div class="meta-stats-text" style="display:flex; gap:18px;">
+                <span>Total Rows: <b id="metaTableRowCount">0</b></span>
+                <span>Data Size: <b id="metaTableDataSize">0 B</b></span>
               </div>
             </div>
           </div>
@@ -157,7 +433,7 @@
           <!-- Existing Columns List -->
           <div style="margin-bottom: 24px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-              <h3 style="margin:0; font-size:15px; color:#1e293b;">Table Columns</h3>
+              <h3 class="section-subheading">Table Columns</h3>
               <small class="muted" id="columnCountBadge">0 columns</small>
             </div>
             <div class="table-wrap">
@@ -180,17 +456,17 @@
           </div>
 
           <!-- Add New Column to Selected Table -->
-          <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; padding:20px; margin-bottom:20px;">
-            <h3 style="margin:0 0 4px; font-size:15px; color:#1e293b;">➕ Add New Column</h3>
+          <div class="crud-inner-card">
+            <h3 class="crud-inner-title">➕ Add New Column</h3>
             <p class="muted" style="margin:0 0 16px;">Add a new column into the currently selected table.</p>
             
-            <form id="formAddColumn" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; align-items:flex-end;">
-              <label style="font-size:12px; font-weight:700; color:#475569;">Column Name
-                <input type="text" id="addColName" required placeholder="e.g. status, address" style="width:100%; border:1px solid #cbd5e1; border-radius:8px; padding:9px; margin-top:4px;">
+            <form id="formAddColumn" class="crud-add-col-form">
+              <label class="crud-form-label">Column Name
+                <input type="text" id="addColName" required placeholder="e.g. status, address" class="crud-form-input">
               </label>
 
-              <label style="font-size:12px; font-weight:700; color:#475569;">Data Type
-                <select id="addColType" style="width:100%; border:1px solid #cbd5e1; border-radius:8px; padding:9px; margin-top:4px;">
+              <label class="crud-form-label">Data Type
+                <select id="addColType" class="crud-form-select">
                   <option value="VARCHAR(255)">VARCHAR(255)</option>
                   <option value="VARCHAR(100)">VARCHAR(100)</option>
                   <option value="INT">INT</option>
@@ -204,19 +480,19 @@
                 </select>
               </label>
 
-              <label style="font-size:12px; font-weight:700; color:#475569;">Nullable
-                <select id="addColNullable" style="width:100%; border:1px solid #cbd5e1; border-radius:8px; padding:9px; margin-top:4px;">
+              <label class="crud-form-label">Nullable
+                <select id="addColNullable" class="crud-form-select">
                   <option value="yes">YES (NULL)</option>
                   <option value="no">NO (NOT NULL)</option>
                 </select>
               </label>
 
-              <label style="font-size:12px; font-weight:700; color:#475569;">Default Value
-                <input type="text" id="addColDefault" placeholder="Optional (or CURRENT_TIMESTAMP)" style="width:100%; border:1px solid #cbd5e1; border-radius:8px; padding:9px; margin-top:4px;">
+              <label class="crud-form-label">Default Value
+                <input type="text" id="addColDefault" placeholder="Optional (or CURRENT_TIMESTAMP)" class="crud-form-input">
               </label>
 
-              <label style="font-size:12px; font-weight:700; color:#475569;">Position
-                <select id="addColPosition" style="width:100%; border:1px solid #cbd5e1; border-radius:8px; padding:9px; margin-top:4px;">
+              <label class="crud-form-label">Position
+                <select id="addColPosition" class="crud-form-select">
                   <option value="">At the end</option>
                 </select>
               </label>
@@ -231,8 +507,8 @@
 
           <!-- Danger Zone: Drop Table -->
           <div class="danger-panel">
-            <h4 style="margin:0 0 6px; color:#991b1b; font-size:15px;">⚠️ Danger Zone: Drop Table</h4>
-            <p style="margin:0 0 14px; font-size:13px; color:#b91c1c;">
+            <h4 style="margin:0 0 6px; font-size:15px;">⚠️ Danger Zone: Drop Table</h4>
+            <p style="margin:0 0 14px; font-size:13px;">
               Permanently delete this table and all its stored records from MySQL. This action cannot be reversed.
             </p>
             <button type="button" class="btn btn-danger" id="btnDropTable">
@@ -254,22 +530,22 @@
 
           <form id="formCreateTable">
             <div style="max-width:400px; margin-bottom:20px;">
-              <label style="display:block; font-size:13px; font-weight:700; color:#334155;">Table Name
-                <input type="text" id="inputNewTableName" required placeholder="e.g. products, customers, feedback" style="width:100%; border:1px solid #cbd5e1; border-radius:9px; padding:11px; margin-top:5px;">
+              <label class="crud-form-label" style="font-size:13px;">Table Name
+                <input type="text" id="inputNewTableName" required placeholder="e.g. products, customers, feedback" class="crud-form-input" style="padding:11px; margin-top:5px;">
               </label>
               <small class="muted">Letters, numbers, and underscores only (max 64 characters).</small>
             </div>
 
             <div style="margin-bottom:16px;">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                <h3 style="margin:0; font-size:15px; color:#1e293b;">Columns Builder</h3>
+                <h3 class="section-subheading">Columns Builder</h3>
                 <button type="button" class="btn" id="btnAddBuilderRow" style="padding:6px 12px; font-size:12px;">
                   ➕ Add Column
                 </button>
               </div>
 
               <!-- Column Builder Header (Labels) -->
-              <div style="display:grid; grid-template-columns:160px 150px 90px 90px 100px 150px 45px; gap:10px; padding:0 12px; font-size:11px; font-weight:700; color:#64748b;">
+              <div class="col-builder-header" style="display:grid; grid-template-columns:160px 150px 90px 90px 100px 150px 45px; gap:10px; padding:0 12px;">
                 <span>Column Name</span>
                 <span>Type</span>
                 <span>Nullable</span>
@@ -357,7 +633,7 @@
             <button class="btn" id="closeConfirmModalBtn" style="padding:4px 10px; font-weight:bold;">✕</button>
           </div>
           <div class="modal-body">
-            <p id="confirmModalText" style="margin:0 0 16px; font-size:14px; color:#334155;">Are you sure?</p>
+            <p id="confirmModalText" class="confirm-modal-desc" style="margin:0 0 16px; font-size:14px;">Are you sure?</p>
             <div style="display:flex; justify-content:flex-end; gap:10px;">
               <button type="button" class="btn" id="cancelConfirmBtn">Cancel</button>
               <button type="button" class="btn btn-danger" id="proceedConfirmBtn">Yes, Proceed</button>

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Tables & Records - Admin Console</title>
-  <link rel="stylesheet" href="/css/app.css">
+  <link rel="stylesheet" href="/css/app.css?v=4">
   <script>
     (function(){var s=localStorage.getItem('admin_theme')||'system';var d=s==='dark'||(s==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d){document.documentElement.setAttribute('data-theme','dark');}else{document.documentElement.setAttribute('data-theme','light');}})();
   </script>
@@ -26,6 +26,7 @@
     .modal-head {
       padding: 18px 24px; border-bottom: 1px solid #edf2f7;
       display: flex; justify-content: space-between; align-items: center;
+      background: #fafbfc;
     }
     .modal-body {
       padding: 24px; overflow-y: auto; display: grid; gap: 14px;
@@ -45,6 +46,53 @@
       background: #f8fafc; padding: 10px; border-radius: 8px;
       margin: 0; border: 1px solid #e2e8f0; font-family: monospace;
       font-size: 12px; white-space: pre-wrap;
+    }
+
+    /* Dark Mode Details Modal */
+    [data-theme="dark"] .modal-backdrop {
+      background: rgba(0, 0, 0, 0.75) !important;
+    }
+    [data-theme="dark"] .modal-card {
+      background: #111827 !important;
+      border: 1px solid #1f2937 !important;
+      color: #f8fafc !important;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8) !important;
+    }
+    [data-theme="dark"] .modal-head {
+      background: #111827 !important;
+      border-bottom: 1px solid #1f2937 !important;
+      color: #f8fafc !important;
+    }
+    [data-theme="dark"] .modal-head h3,
+    [data-theme="dark"] #modalTitle {
+      color: #f8fafc !important;
+    }
+    [data-theme="dark"] #closeModalBtn {
+      background: #1f2937 !important;
+      color: #f8fafc !important;
+      border: 1px solid #374151 !important;
+    }
+    [data-theme="dark"] #closeModalBtn:hover {
+      background: #374151 !important;
+      color: #ffffff !important;
+    }
+    [data-theme="dark"] .modal-body {
+      background: #111827 !important;
+      color: #f8fafc !important;
+    }
+    [data-theme="dark"] .field-row {
+      border-bottom: 1px solid #1f2937 !important;
+    }
+    [data-theme="dark"] .field-label {
+      color: #cbd5e1 !important;
+    }
+    [data-theme="dark"] .field-val {
+      color: #f8fafc !important;
+    }
+    [data-theme="dark"] .field-val pre {
+      background: #0b1120 !important;
+      border: 1px solid #1f2937 !important;
+      color: #38bdf8 !important;
     }
   </style>
 </head>
